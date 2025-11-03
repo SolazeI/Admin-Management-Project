@@ -17,6 +17,16 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/Admin', function () {
+Route::get('/admin', function () {
     return view('admin');
 });
+
+Route::get('/login', function () {
+    return view('login');
+});
+
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AuthController;
+
+Route::post('/login', [AuthController::class, 'authenticate']);
+Route::get('/admin', [AdminController::class, 'index'])->name('admin.dashboard');
