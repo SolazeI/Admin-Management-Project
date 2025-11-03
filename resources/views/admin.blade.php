@@ -57,7 +57,7 @@
                         <span class="nav-label"> Reports </span>
                     </a>
                 </li>
-                <li class = "nav-item">
+                <li class = "nav-item settings"> <!-- added 'settings' class -->
                     <a href="#" class="nav-link">
                         <span class="material-symbols-outlined"> settings </span>
                         <span class="nav-label"> Settings </span>

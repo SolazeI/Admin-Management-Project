@@ -76,9 +76,12 @@ body.login-page {
 }
 
 .header-logo img.logo {
-  width: 220px;
-  height: 220px;
+  width: 250px;
+  height: 250px;
   border-radius: 10px;
+  display: block;
+  margin: 0 auto;
+  transform: translateY(-40px); 
 }
 
 .sidebar {
@@ -92,6 +95,17 @@ body.login-page {
     justify-content: space-between;
     padding: 20px;
 }
+
+
+.sidebar-nav {
+  transform: translateY(-100px);
+}
+
+.nav-item.settings {
+  margin-top: 110px; 
+}
+
+
 
 .sidebar-nav ul {
   list-style: none;      
@@ -124,3 +138,6 @@ body.login-page {
   color: #ffffff;
   font-weight: 600;
 }
+
+
+
