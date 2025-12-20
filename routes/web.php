@@ -13,20 +13,28 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DriverController;
+
 Route::get('/', function () {
     return view('welcome');
-});
-
-Route::get('/admin', function () {
-    return view('admin');
 });
 
 Route::get('/login', function () {
     return view('login');
 });
 
-use App\Http\Controllers\AdminController;
-use App\Http\Controllers\AuthController;
-
 Route::post('/login', [AuthController::class, 'authenticate']);
-Route::get('/admin', [AdminController::class, 'index'])->name('admin.dashboard');
+Route::get('/admin', [DriverController::class, 'index'])->name('admin.dashboard');
+
+// Driver Management Routes
+Route::prefix('drivers')->group(function () {
+    Route::get('/archived', [DriverController::class, 'archived']);
+    Route::get('/search', [DriverController::class, 'search']);
+    Route::post('/', [DriverController::class, 'store']);
+    Route::get('/{id}', [DriverController::class, 'show']);
+    Route::post('/{id}', [DriverController::class, 'update']); // Using POST for update with _method=PUT
+    Route::post('/{id}/archive', [DriverController::class, 'archive']);
+    Route::post('/{id}/unarchive', [DriverController::class, 'unarchive']);
+});
