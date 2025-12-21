@@ -34,7 +34,7 @@ Route::prefix('drivers')->group(function () {
     Route::get('/search', [DriverController::class, 'search']);
     Route::post('/', [DriverController::class, 'store']);
     Route::get('/{id}', [DriverController::class, 'show']);
-    Route::post('/{id}', [DriverController::class, 'update']); // Using POST for update with _method=PUT
+    Route::post('/{id}', [DriverController::class, 'update']); // Using POST for update
     Route::post('/{id}/archive', [DriverController::class, 'archive']);
     Route::post('/{id}/unarchive', [DriverController::class, 'unarchive']);
 });

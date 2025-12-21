@@ -258,6 +258,13 @@ async function handleAddDriver(e) {
     
     const formData = new FormData(e.target);
     
+    // Validate file is selected (required for add)
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert('Please select a file to upload');
+        return;
+    }
+    
     // Convert date from mm/dd/yyyy to yyyy-mm-dd format
     const expiryDate = formData.get('license_expiry_date');
     if (expiryDate && expiryDate.includes('/')) {
@@ -272,22 +279,48 @@ async function handleAddDriver(e) {
         const response = await fetch('/drivers', {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'Accept': 'application/json'
             },
             body: formData
         });
+        
+        const contentType = response.headers.get('content-type');
+        const isJson = contentType && contentType.includes('application/json');
         
         if (response.ok) {
             alert('Driver added successfully');
             closeModal('addDriverModal');
             location.reload();
         } else {
-            const error = await response.json();
-            alert(error.message || 'Failed to add driver');
+            let errorMessage = 'Failed to add driver';
+            
+            if (isJson) {
+                try {
+                    const error = await response.json();
+                    // Handle Laravel validation errors
+                    if (error.errors) {
+                        const errorMessages = Object.values(error.errors).flat().join('\n');
+                        errorMessage = errorMessages || error.message || errorMessage;
+                    } else {
+                        errorMessage = error.message || errorMessage;
+                    }
+                } catch (parseError) {
+                    console.error('Error parsing JSON response:', parseError);
+                    errorMessage = `Server error (${response.status}): ${response.statusText}`;
+                }
+            } else {
+                // If not JSON, try to get text
+                const text = await response.text();
+                errorMessage = `Server error (${response.status}): ${response.statusText}`;
+                console.error('Non-JSON error response:', text);
+            }
+            
+            alert(errorMessage);
         }
     } catch (error) {
         console.error('Error adding driver:', error);
-        alert('Error adding driver');
+        alert(`Error adding driver: ${error.message || 'Network error or server unavailable'}`);
     }
 }
 
@@ -308,28 +341,52 @@ async function handleEditDriver(e) {
         }
     }
     
-    formData.append('_method', 'PUT');
-    
     try {
         const response = await fetch(`/drivers/${driverId}`, {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'Accept': 'application/json'
             },
             body: formData
         });
+        
+        const contentType = response.headers.get('content-type');
+        const isJson = contentType && contentType.includes('application/json');
         
         if (response.ok) {
             alert('Driver updated successfully');
             closeModal('editDriverModal');
             location.reload();
         } else {
-            const error = await response.json();
-            alert(error.message || 'Failed to update driver');
+            let errorMessage = 'Failed to update driver';
+            
+            if (isJson) {
+                try {
+                    const error = await response.json();
+                    // Handle Laravel validation errors
+                    if (error.errors) {
+                        const errorMessages = Object.values(error.errors).flat().join('\n');
+                        errorMessage = errorMessages || error.message || errorMessage;
+                    } else {
+                        errorMessage = error.message || errorMessage;
+                    }
+                } catch (parseError) {
+                    console.error('Error parsing JSON response:', parseError);
+                    errorMessage = `Server error (${response.status}): ${response.statusText}`;
+                }
+            } else {
+                // If not JSON, try to get text
+                const text = await response.text();
+                errorMessage = `Server error (${response.status}): ${response.statusText}`;
+                console.error('Non-JSON error response:', text);
+            }
+            
+            alert(errorMessage);
         }
     } catch (error) {
         console.error('Error updating driver:', error);
-        alert('Error updating driver');
+        alert(`Error updating driver: ${error.message || 'Network error or server unavailable'}`);
     }
 }
 
@@ -364,12 +421,36 @@ async function loadArchivedDrivers() {
                         </button>
                         <div class="actions-menu" id="archived-menu-${driver.id}">
                             <button disabled style="opacity: 0.5; cursor: not-allowed;">Select Action</button>
-                            <button onclick="viewDriver(${driver.id})">View</button>
-                            <button onclick="unarchiveDriver(${driver.id})">Unarchived</button>
+                            <button class="action-view-btn" data-driver-id="${driver.id}">View</button>
+                            <button class="action-unarchive-btn" data-driver-id="${driver.id}" data-driver-name="${driver.full_name.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}">Unarchived</button>
                         </div>
                     </td>
                 `;
                 tbody.appendChild(row);
+            });
+            
+            // Add event listeners for action buttons after appending
+            tbody.querySelectorAll('.action-view-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const driverId = parseInt(this.getAttribute('data-driver-id'));
+                    viewDriver(driverId);
+                });
+            });
+            
+            tbody.querySelectorAll('.action-unarchive-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const driverId = parseInt(this.getAttribute('data-driver-id'));
+                    let driverName = this.getAttribute('data-driver-name');
+                    // Decode HTML entities
+                    if (driverName) {
+                        const textarea = document.createElement('textarea');
+                        textarea.innerHTML = driverName;
+                        driverName = textarea.value;
+                    }
+                    confirmUnarchive(driverId, driverName || 'this driver');
+                });
             });
         }
         
@@ -405,23 +486,122 @@ function openArchivedActionsMenu(driverId) {
     }, 0);
 }
 
-// Unarchive Driver
+// Confirm Unarchive (Step 1)
+function confirmUnarchive(driverId, driverName) {
+    console.log('confirmUnarchive called with:', driverId, driverName);
+    try {
+        // Close the actions menu first
+        const menu = document.getElementById(`archived-menu-${driverId}`);
+        if (menu) {
+            menu.classList.remove('show');
+        }
+        
+        currentDriverId = driverId;
+        currentDriverName = driverName;
+        
+        const nameElement = document.getElementById('warningUnarchiveDriverName');
+        if (nameElement) {
+            nameElement.textContent = driverName;
+        } else {
+            console.error('Element warningUnarchiveDriverName not found');
+            alert('Warning: Modal element not found. Please refresh the page.');
+            return;
+        }
+        
+        console.log('Opening warningModal3');
+        openModal('warningModal3');
+    } catch (error) {
+        console.error('Error in confirmUnarchive:', error);
+        alert('Error opening unarchive confirmation: ' + error.message);
+    }
+}
+
+// Unarchive Driver (old function - keep for backward compatibility, but use confirmUnarchive)
 async function unarchiveDriver(driverId) {
-    if (!confirm('Are you sure you want to unarchive this driver?')) {
+    try {
+        // Get driver name from the table row using browser-compatible method
+        // Find the button with data-driver-id attribute first
+        const unarchiveBtn = document.querySelector(`.action-unarchive-btn[data-driver-id="${driverId}"]`);
+        let driverName = 'this driver';
+        
+        if (unarchiveBtn) {
+            // Get driver name from data attribute and decode HTML entities
+            let rawName = unarchiveBtn.getAttribute('data-driver-name');
+            if (rawName) {
+                const textarea = document.createElement('textarea');
+                textarea.innerHTML = rawName;
+                driverName = textarea.value;
+            }
+            // Find the parent row for fallback if name wasn't decoded properly
+            if (!driverName || driverName === 'this driver') {
+                const row = unarchiveBtn.closest('tr');
+                if (row) {
+                    // Get name from first cell as fallback
+                    const nameCell = row.querySelector('td');
+                    if (nameCell) {
+                        driverName = nameCell.textContent.trim().replace(/\s+/g, ' ').replace(/^[^\w]*/, '') || 'this driver';
+                    }
+                }
+            }
+        } else {
+            // Fallback: try to find row by traversing from any element with the driver ID
+            const archivedTableBody = document.getElementById('archivedTableBody');
+            if (archivedTableBody) {
+                const rows = archivedTableBody.querySelectorAll('tr');
+                for (const row of rows) {
+                    const btn = row.querySelector(`.action-unarchive-btn[data-driver-id="${driverId}"]`);
+                    if (btn) {
+                        let rawName = btn.getAttribute('data-driver-name');
+                        if (rawName) {
+                            const textarea = document.createElement('textarea');
+                            textarea.innerHTML = rawName;
+                            driverName = textarea.value;
+                        } else {
+                            driverName = row.querySelector('td')?.textContent.trim() || 'this driver';
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        
+        confirmUnarchive(driverId, driverName);
+    } catch (error) {
+        console.error('Error in unarchiveDriver:', error);
+        // Fallback to default name if there's any error
+        confirmUnarchive(driverId, 'this driver');
+    }
+}
+
+// Proceed to Unarchive Password (Step 2)
+function proceedToUnarchivePassword() {
+    closeModal('warningModal3');
+    openModal('warningModal4');
+    document.getElementById('adminPasswordUnarchive').value = '';
+}
+
+// Confirm Unarchive Action
+async function confirmUnarchiveAction() {
+    const password = document.getElementById('adminPasswordUnarchive').value;
+    
+    if (!password) {
+        alert('Please enter admin password');
         return;
     }
     
     try {
-        const response = await fetch(`/drivers/${driverId}/unarchive`, {
+        const response = await fetch(`/drivers/${currentDriverId}/unarchive`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            }
+            },
+            body: JSON.stringify({ password })
         });
         
         if (response.ok) {
             alert('Driver unarchived successfully');
+            closeModal('warningModal4');
             closeModal('archivedModal');
             location.reload();
         } else {
@@ -510,10 +690,30 @@ function handleFileSelect(e) {
     const file = e.target.files[0];
     if (file) {
         const uploadArea = document.getElementById('fileUploadArea');
-        uploadArea.innerHTML = `
-            <span class="material-symbols-outlined">check_circle</span>
-            <p>${file.name}</p>
-        `;
+        
+        // Find and update visual elements without removing file input
+        let icon = uploadArea.querySelector('.material-symbols-outlined:not(.date-icon)');
+        let text = uploadArea.querySelector('p');
+        
+        if (icon) {
+            icon.textContent = 'check_circle';
+            icon.style.color = '#10b981';
+        } else {
+            icon = document.createElement('span');
+            icon.className = 'material-symbols-outlined';
+            icon.textContent = 'check_circle';
+            icon.style.color = '#10b981';
+            uploadArea.insertBefore(icon, uploadArea.firstChild);
+        }
+        
+        if (text) {
+            text.textContent = file.name;
+        } else {
+            text = document.createElement('p');
+            text.textContent = file.name;
+            uploadArea.appendChild(text);
+        }
+        
         uploadArea.style.borderColor = '#10b981';
     }
 }
@@ -522,10 +722,30 @@ function handleEditFileSelect(e) {
     const file = e.target.files[0];
     if (file) {
         const uploadArea = document.getElementById('editFileUploadArea');
-        uploadArea.innerHTML = `
-            <span class="material-symbols-outlined">check_circle</span>
-            <p>${file.name}</p>
-        `;
+        
+        // Find and update visual elements without removing file input
+        let icon = uploadArea.querySelector('.material-symbols-outlined:not(.date-icon)');
+        let text = uploadArea.querySelector('p');
+        
+        if (icon) {
+            icon.textContent = 'check_circle';
+            icon.style.color = '#10b981';
+        } else {
+            icon = document.createElement('span');
+            icon.className = 'material-symbols-outlined';
+            icon.textContent = 'check_circle';
+            icon.style.color = '#10b981';
+            uploadArea.insertBefore(icon, uploadArea.firstChild);
+        }
+        
+        if (text) {
+            text.textContent = file.name;
+        } else {
+            text = document.createElement('p');
+            text.textContent = file.name;
+            uploadArea.appendChild(text);
+        }
+        
         uploadArea.style.borderColor = '#10b981';
     }
 }

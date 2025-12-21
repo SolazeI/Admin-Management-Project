@@ -179,9 +179,10 @@
                         <input type="text" name="emergency_contact" required>
                     </div>
                     <div class="form-group">
+                        
                         <label>File <span class="required">*</span></label>
                         <div class="file-upload-area" id="fileUploadArea">
-                            <input type="file" name="file" id="fileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display: none;">
+                            <input type="file" name="file" id="fileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required style="display: none;">
                             <span class="material-symbols-outlined">download</span>
                             <p>Click to upload file</p>
                         </div>
@@ -290,7 +291,7 @@
                         <input type="text" name="emergency_contact" id="editEmergencyContact" required>
                     </div>
                     <div class="form-group">
-                        <label>File <span class="required">*</span></label>
+                        <label>File</label>
                         <button type="button" class="btn btn-view-file" id="viewFileBtn" onclick="viewDriverFile()">
                             <span class="material-symbols-outlined">visibility</span>
                             View File
@@ -298,7 +299,7 @@
                         <div class="file-upload-area" id="editFileUploadArea">
                             <input type="file" name="file" id="editFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display: none;">
                             <span class="material-symbols-outlined">cloud_download</span>
-                            <p>Click to upload file</p>
+                            <p>Click to upload file (optional - leave empty to keep current file)</p>
                         </div>
                     </div>
                 </div>
@@ -375,6 +376,42 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="confirmArchiveAction()">Confirm</button>
                 <button type="button" class="btn btn-cancel" onclick="closeModal('warningModal2')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warning Modal for Unarchive (Step 1) -->
+    <div class="modal" id="warningModal3">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon">warning</span>
+                <h2>Warning</h2>
+            </div>
+            <div class="modal-body">
+                <p><strong>Driver:</strong> <span id="warningUnarchiveDriverName"></span></p>
+                <p>Are you sure you want to unarchive this driver?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="proceedToUnarchivePassword()">Yes</button>
+                <button type="button" class="btn btn-cancel" onclick="closeModal('warningModal3')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warning Modal for Unarchive (Step 2 - Password) -->
+    <div class="modal" id="warningModal4">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon">warning</span>
+                <h2>Warning</h2>
+            </div>
+            <div class="modal-body">
+                <p>Please input the admin password to confirm this action.</p>
+                <input type="password" class="password-input" id="adminPasswordUnarchive" placeholder="Enter admin password">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="confirmUnarchiveAction()">Confirm</button>
+                <button type="button" class="btn btn-cancel" onclick="closeModal('warningModal4')">Cancel</button>
             </div>
         </div>
     </div>
