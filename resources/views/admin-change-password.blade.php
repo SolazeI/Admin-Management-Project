@@ -51,9 +51,11 @@
                 placeholder="Confirm New Password" autocomplete="new-password" required>
         </div>
 
-        <button type="submit" class="btn btn-primary login-submit">Update Password</button>
+        <button type="submit" class="btn btn-primary login-submit" style="display:block; margin:0 auto;">
+            Update Password
+        </button>
         <a href="{{ url('/admin') }}" class="btn btn-secondary login-submit"
-            style="text-align:center; display:block; margin-top:10px;">
+            style="text-align:center; display:block; margin:10px auto 0;">
             Back to Admin
         </a>
     </form>

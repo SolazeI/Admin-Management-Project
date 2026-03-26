@@ -43,7 +43,9 @@
                 aria-label="Show password">visibility</button>
         </div>
 
-        <button type="submit" class="btn btn-primary login-submit">Login</button>
+        <button type="submit" class="btn btn-primary login-submit" style="display:block; margin:0 auto;">
+            Login
+        </button>
 
         <script>
             document.addEventListener('click', function(e) {

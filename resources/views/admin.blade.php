@@ -57,6 +57,21 @@
                         <span class="nav-label">Reports</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="{{ url('/admin/password') }}" class="nav-link">
+                        <span class="material-symbols-outlined">lock</span>
+                        <span class="nav-label">Change Password</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <form action="{{ url('/admin/logout') }}" method="POST" style="margin:0;">
+                        @csrf
+                        <button type="submit" class="nav-link" style="width:100%; border:none; background:none; text-align:left; cursor:pointer;">
+                            <span class="material-symbols-outlined">logout</span>
+                            <span class="nav-label">Logout</span>
+                        </button>
+                    </form>
+                </li>
             </ul>
         </nav>
     </aside>
@@ -68,17 +83,6 @@
                 <p class="page-subtitle">Manage your driver information and assignments</p>
             </div>
             <div class="header-actions">
-                <a class="btn btn-secondary" href="{{ url('/admin/password') }}">
-                    <span class="material-symbols-outlined">lock</span>
-                    Change Password
-                </a>
-                <form action="{{ url('/admin/logout') }}" method="POST" style="display:inline;">
-                    @csrf
-                    <button type="submit" class="btn btn-secondary">
-                        <span class="material-symbols-outlined">logout</span>
-                        Logout
-                    </button>
-                </form>
                 <button class="btn btn-secondary" id="archivedBtn">
                     <span class="material-symbols-outlined">folder</span>
                     Archived
