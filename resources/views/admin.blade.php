@@ -68,6 +68,17 @@
                 <p class="page-subtitle">Manage your driver information and assignments</p>
             </div>
             <div class="header-actions">
+                <a class="btn btn-secondary" href="{{ url('/admin/password') }}">
+                    <span class="material-symbols-outlined">lock</span>
+                    Change Password
+                </a>
+                <form action="{{ url('/admin/logout') }}" method="POST" style="display:inline;">
+                    @csrf
+                    <button type="submit" class="btn btn-secondary">
+                        <span class="material-symbols-outlined">logout</span>
+                        Logout
+                    </button>
+                </form>
                 <button class="btn btn-secondary" id="archivedBtn">
                     <span class="material-symbols-outlined">folder</span>
                     Archived

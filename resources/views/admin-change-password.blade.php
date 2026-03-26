@@ -8,11 +8,11 @@
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
-    <title>Admin Login</title>
+    <title>Admin - Change Password</title>
 </head>
 
 <body class="login-page">
-    <form action="{{ url('/admin/login') }}" method="POST" class="login-form">
+    <form action="{{ url('/admin/password') }}" method="POST" class="login-form">
         @csrf
         <div class="login-logo">
             <img src="{{ asset('images/AdminLogo.png') }}" alt="Company Logo" class="logo">
@@ -37,28 +37,26 @@
         @endif
 
         <div class="password-wrapper">
-            <input id="password" type="password" name="password" class="password-input" placeholder="Enter Password"
+            <input type="password" name="current_password" class="password-input" placeholder="Current Password"
                 autocomplete="current-password" required>
-            <button type="button" class="toggle-password material-symbols-outlined"
-                aria-label="Show password">visibility</button>
         </div>
 
-        <button type="submit" class="btn btn-primary login-submit">Login</button>
+        <div class="password-wrapper">
+            <input type="password" name="new_password" class="password-input" placeholder="New Password (min 12 chars)"
+                autocomplete="new-password" required>
+        </div>
 
-        <script>
-            document.addEventListener('click', function(e) {
-                if (!e.target.matches('.toggle-password')) return;
-                var btn = e.target;
-                var input = btn.previousElementSibling;
-                var isPwd = input && input.type === 'password';
-                if (!input) return;
-                input.type = isPwd ? 'text' : 'password';
-                btn.textContent = isPwd ? 'visibility_off' : 'visibility';
-                btn.setAttribute('aria-label', isPwd ? 'Hide password' : 'Show password');
-            });
-        </script>
+        <div class="password-wrapper">
+            <input type="password" name="new_password_confirmation" class="password-input"
+                placeholder="Confirm New Password" autocomplete="new-password" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary login-submit">Update Password</button>
+        <a href="{{ url('/admin') }}" class="btn btn-secondary login-submit"
+            style="text-align:center; display:block; margin-top:10px;">
+            Back to Admin
+        </a>
     </form>
-
 </body>
 
 </html>
