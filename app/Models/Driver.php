@@ -29,5 +29,10 @@ class Driver extends Model
         'last_trip' => 'date',
         'is_archived' => 'boolean',
     ];
+
+    public function trips()
+    {
+        return $this->hasMany(TripTicket::class);
+    }
 }
 

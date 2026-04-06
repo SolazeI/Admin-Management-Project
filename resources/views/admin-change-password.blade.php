@@ -30,7 +30,7 @@
             </div>
         @endif
 
-        @if ($errors->any())
+        @if (isset($errors) && $errors->any())
             <div class="login-error" role="alert">
                 {{ $errors->first() }}
             </div>

@@ -14,7 +14,7 @@
 <body class="admin-page">
     <aside class="sidebar">
         <header class="sidebar-header">
-            <a href="#" class="header-logo">
+            <a href="{{ url('/dashboard') }}" class="header-logo">
                 <img src="{{ asset('images/AdminLogo.png') }}" alt="Company Logo" class="logo">
             </a>
         </header>
@@ -22,37 +22,37 @@
         <nav class="sidebar-nav">
             <ul class="nav-list">
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
+                    <a href="{{ url('/dashboard') }}" class="nav-link">
                         <span class="material-symbols-outlined">home</span>
                         <span class="nav-label">Dashboard</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link active">
+                    <a href="{{ url('/admin') }}" class="nav-link active">
                         <span class="material-symbols-outlined">group</span>
                         <span class="nav-label">Driver Management</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
+                    <a href="{{ url('/fleet') }}" class="nav-link">
                         <span class="material-symbols-outlined">local_shipping</span>
                         <span class="nav-label">Fleet Management</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
+                    <a href="{{ url('/trips') }}" class="nav-link">
                         <span class="material-symbols-outlined">inventory_2</span>
                         <span class="nav-label">Trip Tickets</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
+                    <a href="{{ url('/maintenance') }}" class="nav-link">
                         <span class="material-symbols-outlined">build</span>
                         <span class="nav-label">Maintenance</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
+                    <a href="{{ url('/reports') }}" class="nav-link">
                         <span class="material-symbols-outlined">bar_chart</span>
                         <span class="nav-label">Reports</span>
                     </a>
