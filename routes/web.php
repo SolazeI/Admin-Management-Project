@@ -71,4 +71,6 @@ Route::middleware('admin')->group(function () {
 
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::post('/reports/compile', [ReportController::class, 'compile'])->name('reports.compile');
+    Route::get('/reports/{compilation}/download', [ReportController::class, 'download'])->name('reports.download');
 });

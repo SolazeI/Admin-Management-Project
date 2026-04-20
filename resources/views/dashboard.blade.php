@@ -2,7 +2,7 @@
 
 @php
     $active = 'dashboard';
-    $title = 'Dashboard';
+    $title  = 'Dashboard';
 @endphp
 
 @section('content')
@@ -24,23 +24,23 @@
         </div>
         <div class="metric-card">
             <div class="metric-label">Available Trucks</div>
-            <div class="metric-value">{{ $availableTrucks }}</div>
+            <div class="metric-value metric-green">{{ $availableTrucks }}</div>
         </div>
         <div class="metric-card">
             <div class="metric-label">Available Drivers</div>
-            <div class="metric-value">{{ $availableDrivers }}</div>
+            <div class="metric-value metric-blue">{{ $availableDrivers }}</div>
         </div>
         <div class="metric-card">
             <div class="metric-label">Pending Maintenance</div>
-            <div class="metric-value">{{ $pendingMaintenance }}</div>
+            <div class="metric-value metric-gold">{{ $pendingMaintenance }}</div>
         </div>
     </div>
 
     <div class="dashboard-panels">
         <section class="panel-card">
             <div class="panel-head">
-                <h2 class="section-title panel-title">Revenue Trend</h2>
-                <span class="chip-light">Last 7 Months</span>
+                <h2 class="panel-title">Revenue Trend</h2>
+                <span class="chip-light">Last 6 Months</span>
             </div>
             <div class="chart-placeholder">
                 <div class="chart-bars">
@@ -56,7 +56,7 @@
 
         <section class="panel-card">
             <div class="panel-head">
-                <h2 class="section-title panel-title">Active Trips</h2>
+                <h2 class="panel-title">Active Trips</h2>
                 <a href="{{ url('/trips') }}" class="small-link">View All</a>
             </div>
             <div class="trip-list">
@@ -80,4 +80,3 @@
         </section>
     </div>
 @endsection
-

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Driver;
 use App\Models\TripTicket;
 use App\Models\Truck;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -46,7 +47,9 @@ class TripTicketController extends Controller
             $validated['trip_no'] = 'TRIP-' . strtoupper(Str::random(6));
         }
 
-        TripTicket::create($validated);
+        $trip = TripTicket::create($validated);
+        $this->syncStatusesAfterTripChange($trip);
+
         return redirect()->back()->with('success', 'Trip ticket saved.');
     }
 
@@ -69,13 +72,31 @@ class TripTicketController extends Controller
 
         $validated = $this->normalizeDateTimes($validated);
 
+        $oldDriverId = $trip->driver_id;
+        $oldTruckId = $trip->truck_id;
+        $oldStatus = $trip->status;
+
         $trip->update($validated);
+        $this->syncStatusesAfterTripChange($trip, $oldDriverId, $oldTruckId, $oldStatus);
+
         return redirect()->back()->with('success', 'Trip ticket updated.');
     }
 
     public function destroy(TripTicket $trip)
     {
+        $oldDriverId = $trip->driver_id;
+        $oldTruckId = $trip->truck_id;
+
         $trip->delete();
+
+        // Re-evaluate availability after removing a trip assignment.
+        if ($oldDriverId) {
+            $this->syncDriverFromActiveTrips($oldDriverId);
+        }
+        if ($oldTruckId) {
+            $this->syncTruckFromActiveTrips($oldTruckId);
+        }
+
         return redirect()->back()->with('success', 'Trip ticket deleted.');
     }
 
@@ -88,5 +109,94 @@ class TripTicketController extends Controller
         }
 
         return $validated;
+    }
+
+    private function syncStatusesAfterTripChange(
+        TripTicket $trip,
+        ?int $oldDriverId = null,
+        ?int $oldTruckId = null,
+        ?string $oldStatus = null
+    ): void {
+        // If assignment changed, re-sync old entities first.
+        if ($oldDriverId && $oldDriverId !== $trip->driver_id) {
+            $this->syncDriverFromActiveTrips($oldDriverId);
+        }
+        if ($oldTruckId && $oldTruckId !== $trip->truck_id) {
+            $this->syncTruckFromActiveTrips($oldTruckId);
+        }
+
+        $driver = Driver::find($trip->driver_id);
+        $truck = Truck::find($trip->truck_id);
+        if (!$driver || !$truck) {
+            return;
+        }
+
+        if ($trip->status === 'In-Transit') {
+            $driver->update([
+                'status' => 'Covering',
+                'assigned_truck' => $truck->truck_code,
+            ]);
+            $truck->update(['status' => 'In-Transit']);
+            return;
+        }
+
+        // Count trip once when it transitions into Completed.
+        if ($trip->status === 'Completed' && $oldStatus !== 'Completed') {
+            $completedAt = $trip->arrival_time
+                ? Carbon::parse($trip->arrival_time)->toDateString()
+                : Carbon::now()->toDateString();
+
+            $driver->update([
+                'total_trips' => ($driver->total_trips ?? 0) + 1,
+                'last_trip' => $completedAt,
+            ]);
+        }
+
+        // For Draft/Completed/Cancelled (or when no longer In-Transit), sync based on other active trips.
+        $this->syncDriverFromActiveTrips($trip->driver_id);
+        $this->syncTruckFromActiveTrips($trip->truck_id);
+    }
+
+    private function syncDriverFromActiveTrips(int $driverId): void
+    {
+        $driver = Driver::find($driverId);
+        if (!$driver) {
+            return;
+        }
+
+        $activeTrip = TripTicket::with('truck')
+            ->where('driver_id', $driverId)
+            ->where('status', 'In-Transit')
+            ->latest('updated_at')
+            ->first();
+
+        if ($activeTrip) {
+            $driver->update([
+                'status' => 'Covering',
+                'assigned_truck' => optional($activeTrip->truck)->truck_code,
+            ]);
+            return;
+        }
+
+        $driver->update([
+            'status' => 'Available',
+            'assigned_truck' => null,
+        ]);
+    }
+
+    private function syncTruckFromActiveTrips(int $truckId): void
+    {
+        $truck = Truck::find($truckId);
+        if (!$truck) {
+            return;
+        }
+
+        $hasActiveTrip = TripTicket::where('truck_id', $truckId)
+            ->where('status', 'In-Transit')
+            ->exists();
+
+        $truck->update([
+            'status' => $hasActiveTrip ? 'In-Transit' : 'Available',
+        ]);
     }
 }
