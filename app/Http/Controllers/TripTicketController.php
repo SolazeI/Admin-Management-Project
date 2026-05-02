@@ -13,33 +13,59 @@ class TripTicketController extends Controller
 {
     public function index()
     {
-        $drivers = Driver::where('is_archived', false)->orderBy('full_name')->get();
-        $trucks = Truck::orderBy('truck_code')->get();
+        // Available only — for the Add modal
+        $drivers = Driver::where('is_archived', false)
+            ->where('status', 'Available')
+            ->orderBy('full_name')
+            ->get();
+
+        $trucks = Truck::where('status', 'Available')
+            ->orderBy('truck_code')
+            ->get();
+
+        // All (non-archived) — for edit forms so current assignments still show
+        $allDrivers = Driver::where('is_archived', false)
+            ->orderBy('full_name')
+            ->get();
+
+        $allTrucks = Truck::orderBy('truck_code')->get();
 
         $tripTickets = TripTicket::with(['driver', 'truck'])
             ->orderByDesc('created_at')
             ->limit(50)
             ->get();
 
-        return view('trips', compact('drivers', 'trucks', 'tripTickets'));
+        return view('trips', compact('drivers', 'trucks', 'allDrivers', 'allTrucks', 'tripTickets'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'trip_no' => 'nullable|string|max:50|unique:trip_tickets,trip_no',
-            'driver_id' => 'required|exists:drivers,id',
-            'truck_id' => 'required|exists:trucks,id',
-            'date_issued' => 'nullable|date',
-            'origin' => 'nullable|string|max:255',
-            'destination' => 'nullable|string|max:255',
+            'trip_no'        => 'nullable|string|max:50|unique:trip_tickets,trip_no',
+            'driver_id'      => 'required|exists:drivers,id',
+            'truck_id'       => 'required|exists:trucks,id',
+            'date_issued'    => 'nullable|date',
+            'origin'         => 'nullable|string|max:255',
+            'destination'    => 'nullable|string|max:255',
             'departure_time' => 'nullable|date_format:Y-m-d\TH:i',
-            'arrival_time' => 'nullable|date_format:Y-m-d\TH:i',
-            'distance_km' => 'nullable|integer|min:0',
-            'amount' => 'nullable|numeric|min:0',
-            'status' => 'required|in:Draft,In-Transit,Completed,Cancelled',
-            'remarks' => 'nullable|string',
+            'arrival_time'   => 'nullable|date_format:Y-m-d\TH:i',
+            'distance_km'    => 'nullable|integer|min:0',
+            'amount'         => 'nullable|numeric|min:0',
+            'status'         => 'required|in:Draft,In-Transit,Completed,Cancelled',
+            'remarks'        => 'nullable|string',
         ]);
+
+        // Guard: truck must be available
+        $truck = Truck::find($validated['truck_id']);
+        if ($truck && $truck->status !== 'Available') {
+            return redirect()->back()->withErrors(['truck_id' => 'This truck is not available ('.$truck->status.').' ]);
+        }
+
+        // Guard: driver must be available
+        $driver = Driver::find($validated['driver_id']);
+        if ($driver && $driver->status !== 'Available') {
+            return redirect()->back()->withErrors(['driver_id' => 'This driver is not available ('.$driver->status.').' ]);
+        }
 
         $validated = $this->normalizeDateTimes($validated);
 

@@ -362,7 +362,7 @@ body.admin-page { display: flex; min-height: 100vh; }
 .status-onleave     { color: #92400e; background: #fef3c7; }
 .status-covering    { color: #1e40af; background: #dbeafe; }
 .status-intransit   { color: #1e40af; background: #dbeafe; }
-.status-maintenance { color: #92400e; background: #fef3c7; }
+.status-maintenance { color: #920e0e; background: #fec7c7; }
 .status-inactive    { color: #4b5563; background: #f3f4f6; }
 .status-pending     { color: #92400e; background: #fef3c7; }
 .status-inprogress  { color: #1e40af; background: #dbeafe; }

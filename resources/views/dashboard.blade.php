@@ -45,22 +45,6 @@
                 <span class="chip-light" id="range-label">Last 6 Months</span>
             </div>
 
-            {{-- Summary chips --}}
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
-                <div style="background:#f8fafc;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;">
-                    <div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;">Total Revenue</div>
-                    <div id="total-rev" style="font-size:22px;font-weight:700;color:#2563eb;">—</div>
-                </div>
-                <div style="background:#f8fafc;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;">
-                    <div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;">Highest Month</div>
-                    <div id="high-rev" style="font-size:22px;font-weight:700;color:#059669;">—</div>
-                </div>
-                <div style="background:#f8fafc;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;">
-                    <div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;">Monthly Avg</div>
-                    <div id="avg-rev" style="font-size:22px;font-weight:700;color:#d97706;">—</div>
-                </div>
-            </div>
-
             {{-- Range toggles --}}
             <div style="display:flex;gap:6px;margin-bottom:14px;">
                 <button class="filter-range active" onclick="setRange(6,this)">6 Months</button>
@@ -153,11 +137,14 @@
         const revenue = allData.revenue.slice(-months);
         const profit  = allData.profit.slice(-months);
 
-        document.getElementById('total-rev').textContent = fmt(revenue.reduce((a, b) => a + b, 0));
-        document.getElementById('high-rev').textContent  = fmt(Math.max(...revenue));
-        document.getElementById('avg-rev').textContent   = fmt(Math.round(revenue.reduce((a, b) => a + b, 0) / revenue.length));
-
         if (chart) chart.destroy();
+
+        if (!revenue.length) {
+            document.getElementById('revenueChart').style.display = 'none';
+            return;
+        }
+
+        document.getElementById('revenueChart').style.display = '';
 
         chart = new Chart(document.getElementById('revenueChart'), {
             type: 'bar',

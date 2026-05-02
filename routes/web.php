@@ -40,13 +40,13 @@ Route::middleware('admin')->group(function () {
     Route::get('/admin/password', [AuthController::class, 'showChangePassword'])->name('admin.password');
     Route::post('/admin/password', [AuthController::class, 'changePassword'])->name('admin.password.update');
 
-    // Driver Management Routes
-    Route::prefix('drivers')->group(function () {
+   Route::prefix('drivers')->group(function () {
         Route::get('/archived', [DriverController::class, 'archived']);
         Route::get('/search', [DriverController::class, 'search']);
+        Route::get('/filter-status', [DriverController::class, 'filterByStatus']); // moved up, removed duplicate prefix
         Route::post('/', [DriverController::class, 'store']);
         Route::get('/{id}', [DriverController::class, 'show']);
-        Route::post('/{id}', [DriverController::class, 'update']); // Using POST for update
+        Route::post('/{id}', [DriverController::class, 'update']);
         Route::post('/{id}/archive', [DriverController::class, 'archive']);
         Route::post('/{id}/unarchive', [DriverController::class, 'unarchive']);
     });

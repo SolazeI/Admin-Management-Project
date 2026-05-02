@@ -152,5 +152,19 @@ class DriverController extends Controller
 
         return response()->json($drivers);
     }
+
+    public function filterByStatus(Request $request)
+    {
+        $statuses = $request->get('statuses', []);
+
+        $query = Driver::where('is_archived', false)
+            ->withCount('trips as total_trips_count');
+
+        if (!empty($statuses)) {
+            $query->whereIn('status', $statuses);
+        }
+
+        return response()->json($query->get());
+    }
 }
 

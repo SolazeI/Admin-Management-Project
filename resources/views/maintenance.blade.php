@@ -12,14 +12,40 @@
             <p class="page-subtitle">Manage weekly/monthly maintenance entries and view summaries.</p>
         </div>
         <div class="header-actions">
+            <button class="btn btn-primary" id="addMaintenanceBtn">
+                <span class="material-symbols-outlined">add</span>
+                Add Maintenance Record
+            </button>
             <div class="search-wrapper">
                 <span class="material-symbols-outlined search-icon">search</span>
-                <input class="search-input" placeholder="Search records">
+                <input class="search-input" id="maintSearch" placeholder="Search by truck, issue, notes" autocomplete="off">
             </div>
-            <button class="btn btn-filter">
-                <span class="material-symbols-outlined">filter_alt</span>
-                Filter
-            </button>
+            <div style="position:relative;">
+                <button class="btn btn-filter" id="maintFilterBtn">
+                    <span class="material-symbols-outlined">filter_alt</span>
+                    Filter
+                </button>
+                <div id="maintFilterPanel" style="
+                    display:none; position:absolute; right:0; top:calc(100% + 6px);
+                    background:#fff; border:1px solid #e2e8f0; border-radius:10px;
+                    box-shadow:0 8px 24px rgba(0,0,0,.12); padding:14px 16px;
+                    min-width:180px; z-index:500;">
+                    @foreach (['Pending','In-Progress','Completed','Cancelled'] as $st)
+                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#1e293b; cursor:pointer; padding:4px 0;">
+                            <input type="checkbox" class="maint-status-filter" value="{{ strtolower(str_replace(['-',' '], '', $st)) }}" checked
+                                style="accent-color:#0f1a2e; width:14px; height:14px; cursor:pointer;">
+                            {{ $st }}
+                        </label>
+                    @endforeach
+                    <button onclick="clearMaintFilters()" style="
+                        margin-top:10px; width:100%; padding:6px; border-radius:6px;
+                        border:1px solid #e2e8f0; background:#f8fafc; font-size:12px;
+                        font-family:'Poppins',sans-serif; font-weight:600; color:#64748b;
+                        cursor:pointer;">
+                        Clear Filters
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -33,52 +59,6 @@
             {{ $errors->first() }}
         </div>
     @endif
-
-    {{-- Add Record Form --}}
-    <div class="drivers-section" style="margin-bottom:16px;">
-        <h2 class="section-title">Add Maintenance Record</h2>
-        <form action="{{ url('/maintenance') }}" method="POST"
-            style="display:grid; grid-template-columns: repeat(4, minmax(160px,1fr)); gap:10px; align-items:end;">
-            @csrf
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck <span style="color:#ef4444;">*</span></label>
-                <select name="truck_id" class="search-input" style="width:100%;" required>
-                    <option value="">Select Truck</option>
-                    @foreach ($trucks as $truck)
-                        <option value="{{ $truck->id }}">{{ $truck->truck_code }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Issue Description <span style="color:#ef4444;">*</span></label>
-                <input name="issue_description" class="search-input" style="width:100%;" placeholder="Issue description" required>
-            </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Start Date</label>
-                <input type="date" name="start_date" class="search-input" style="width:100%;">
-            </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Status <span style="color:#ef4444;">*</span></label>
-                <select name="status" class="search-input" style="width:100%;" required>
-                    @foreach (['Pending','In-Progress','Completed','Cancelled'] as $st)
-                        <option value="{{ $st }}">{{ $st }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Notes</label>
-                <input name="notes" class="search-input" style="width:100%;" placeholder="Notes (optional)">
-            </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Cost</label>
-                <input name="cost" class="search-input" style="width:100%;" placeholder="₱ Cost (optional)">
-            </div>
-            <button class="btn btn-primary" type="submit" style="grid-column: 3 / 5; justify-content:center;">
-                <span class="material-symbols-outlined">add</span>
-                Add Record
-            </button>
-        </form>
-    </div>
 
     {{-- Records Table --}}
     <div class="drivers-section">
@@ -98,7 +78,9 @@
                 </thead>
                 <tbody>
                     @forelse ($records as $rec)
-                        <tr>
+                        <tr data-truck="{{ strtolower($rec->truck->truck_code ?? '') }}"
+                        data-issue="{{ strtolower($rec->issue_description) }}"
+                        data-notes="{{ strtolower($rec->notes ?? '') }}">
                             <td style="font-weight:600;">{{ $rec->truck->truck_code ?? '—' }}</td>
                             <td>{{ $rec->issue_description }}</td>
                             <td>{{ $rec->start_date ?? '—' }}</td>
@@ -153,4 +135,156 @@
             </table>
         </div>
     </div>
+    {{-- ===================== ADD MAINTENANCE MODAL ===================== --}}
+    <div class="modal" id="addMaintenanceModal">
+        <div class="modal-content" style="max-width:680px;">
+            <div class="modal-header">
+                <span class="material-symbols-outlined">build</span>
+                <h2>Add Maintenance Record</h2>
+            </div>
+            <form action="{{ url('/maintenance') }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Truck <span class="required">*</span></label>
+                            <select name="truck_id" required>
+                                <option value="">Select Truck</option>
+                                @foreach ($trucks as $truck)
+                                    <option value="{{ $truck->id }}">{{ $truck->truck_code }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status <span class="required">*</span></label>
+                            <select name="status" required>
+                                @foreach (['Pending','In-Progress','Completed','Cancelled'] as $st)
+                                    <option value="{{ $st }}">{{ $st }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label>Issue Description <span class="required">*</span></label>
+                        <input type="text" name="issue_description" placeholder="Describe the issue" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="date" name="start_date">
+                        </div>
+                        <div class="form-group">
+                            <label>Cost</label>
+                            <input type="text" name="cost" placeholder="₱ Cost (optional)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <input type="text" name="notes" placeholder="Notes (optional)">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeMaintenanceModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-symbols-outlined">add</span>
+                        Add Record
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('addMaintenanceBtn').addEventListener('click', () => {
+            document.getElementById('addMaintenanceModal').classList.add('show');
+        });
+
+        function closeMaintenanceModal() {
+            document.getElementById('addMaintenanceModal').classList.remove('show');
+        }
+
+        document.getElementById('addMaintenanceModal').addEventListener('click', function (e) {
+            if (e.target === this) closeMaintenanceModal();
+        });
+
+        // ── Maintenance Filter Panel ─────────────────────────────
+        const maintFilterBtn   = document.getElementById('maintFilterBtn');
+        const maintFilterPanel = document.getElementById('maintFilterPanel');
+
+        maintFilterBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            maintFilterPanel.style.display = maintFilterPanel.style.display === 'block' ? 'none' : 'block';
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!maintFilterPanel.contains(e.target) && e.target !== maintFilterBtn) {
+                maintFilterPanel.style.display = 'none';
+            }
+        });
+
+        document.querySelectorAll('.maint-status-filter').forEach(cb => {
+            cb.addEventListener('change', applyMaintFilters);
+        });
+
+        function clearMaintFilters() {
+            document.querySelectorAll('.maint-status-filter').forEach(cb => cb.checked = true);
+            applyMaintFilters();
+        }
+
+        function applyMaintFilters() {
+            const query   = document.getElementById('maintSearch')?.value.trim().toLowerCase() ?? '';
+            const checked = Array.from(document.querySelectorAll('.maint-status-filter:checked'))
+                .map(cb => cb.value);
+
+            document.querySelectorAll('.drivers-table tbody tr').forEach(row => {
+                const truck = row.dataset.truck ?? '';
+                const issue = row.dataset.issue ?? '';
+                const notes = row.dataset.notes ?? '';
+
+                const matchesSearch = !query
+                    || truck.includes(query)
+                    || issue.includes(query)
+                    || notes.includes(query);
+
+                const badge  = row.querySelector('.status-badge');
+                const status = Array.from(badge?.classList ?? [])
+                    .find(c => c.startsWith('status-') && c !== 'status-badge')
+                    ?.replace('status-', '') ?? '';
+
+                row.style.display = (matchesSearch && checked.includes(status)) ? '' : 'none';
+            });
+        }
+
+        // ── Search ───────────────────────────────────────────────
+        document.getElementById('maintSearch').addEventListener('input', function () {
+            applyMaintFilters();
+        });
+
+        function applyMaintFilters() {
+            const query   = document.getElementById('maintSearch')?.value.trim().toLowerCase() ?? '';
+            const checked = Array.from(document.querySelectorAll('.maint-status-filter:checked'))
+                .map(cb => cb.value);
+
+            document.querySelectorAll('.drivers-table tbody tr').forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (!cells.length) return;
+
+                const truck   = cells[0]?.textContent.trim().toLowerCase() ?? '';
+                const issue   = cells[1]?.textContent.trim().toLowerCase() ?? '';
+                const notes   = cells[4]?.textContent.trim().toLowerCase() ?? '';
+
+                const matchesSearch = !query
+                    || truck.includes(query)
+                    || issue.includes(query)
+                    || notes.includes(query);
+
+                const badge  = row.querySelector('.status-badge');
+                const status = Array.from(badge?.classList ?? [])
+                    .find(c => c.startsWith('status-') && c !== 'status-badge')
+                    ?.replace('status-', '') ?? '';
+
+                row.style.display = (matchesSearch && checked.includes(status)) ? '' : 'none';
+            });
+        }
+    </script>
 @endsection
