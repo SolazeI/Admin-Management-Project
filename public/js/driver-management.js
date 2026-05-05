@@ -810,3 +810,43 @@ if (!document.querySelector('meta[name="csrf-token"]')) {
     document.head.appendChild(meta);
 }
 
+// ── Filter Panel ─────────────────────────────────────────
+const filterBtn   = document.getElementById('filterBtn');
+const filterPanel = document.getElementById('filterPanel');
+
+filterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    filterPanel.style.display = filterPanel.style.display === 'block' ? 'none' : 'block';
+});
+
+document.addEventListener('click', (e) => {
+    if (!filterPanel.contains(e.target) && e.target !== filterBtn) {
+        filterPanel.style.display = 'none';
+    }
+});
+
+document.querySelectorAll('.status-filter').forEach(cb => {
+    cb.addEventListener('change', applyDriverFilters);
+});
+
+function clearFilters() {
+    document.querySelectorAll('.status-filter').forEach(cb => cb.checked = true);
+    applyDriverFilters();
+}
+
+function applyDriverFilters() {
+    const checked = Array.from(document.querySelectorAll('.status-filter:checked'))
+        .map(cb => cb.value);
+
+    document.querySelectorAll('#driversTableBody tr').forEach(row => {
+        const badge = row.querySelector('.status-badge');
+        if (!badge) return;
+
+        const status = Array.from(badge.classList)
+            .find(c => c.startsWith('status-') && c !== 'status-badge')
+            ?.replace('status-', '') ?? '';
+
+        row.style.display = checked.includes(status) ? '' : 'none';
+    });
+}
+
