@@ -258,6 +258,7 @@
             </form>
         </div>
     </div>
+<<<<<<< HEAD
 
     <script>
         document.getElementById('addMaintenanceBtn').addEventListener('click', () => {
@@ -333,3 +334,7 @@
         document.getElementById('maintSearch').addEventListener('input', applyMaintFilters);
     </script>
 @endsection
+=======
+    <script src="{{ asset('js/maintenance.js') }}"></script>
+@endsection
+>>>>>>> 2acb994d721b26ccb58fcb8d54e0528b4dc64e62

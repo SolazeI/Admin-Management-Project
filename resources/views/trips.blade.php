@@ -324,6 +324,7 @@
         </div>
     </div>
 
+<<<<<<< HEAD
     <script>
         document.getElementById('addTripBtn').addEventListener('click', () => {
             document.getElementById('addTripModal').classList.add('show');
@@ -398,3 +399,7 @@
         document.getElementById('tripSearch').addEventListener('input', applyTripFilters);
     </script>
 @endsection
+=======
+    <script src="{{ asset('js/trips.js') }}"></script>
+@endsection
+>>>>>>> 2acb994d721b26ccb58fcb8d54e0528b4dc64e62
