@@ -25,10 +25,12 @@ class MaintenanceRecordController extends Controller
             'truck_id'          => 'required|exists:trucks,id',
             'issue_description' => 'required|string|max:255',
             'start_date'        => 'nullable|date',
-            'status'            => 'required|in:Pending,In-Progress,Completed,Cancelled',
             'notes'             => 'nullable|string|max:255',
             'cost'              => 'nullable|numeric|min:0',
         ]);
+
+        // New records always start as Pending
+        $validated['status'] = 'Pending';
 
         MaintenanceRecord::create($validated);
         $this->syncTruckStatus($validated['truck_id']);
@@ -42,7 +44,6 @@ class MaintenanceRecordController extends Controller
             'truck_id'          => 'required|exists:trucks,id',
             'issue_description' => 'required|string|max:255',
             'start_date'        => 'nullable|date',
-            'status'            => 'required|in:Pending,In-Progress,Completed,Cancelled',
             'notes'             => 'nullable|string|max:255',
             'cost'              => 'nullable|numeric|min:0',
         ]);
@@ -57,6 +58,29 @@ class MaintenanceRecordController extends Controller
         }
 
         return redirect()->back()->with('success', 'Maintenance record updated.');
+    }
+
+    public function transition(Request $request, MaintenanceRecord $record)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:In-Progress,Completed,Cancelled',
+        ]);
+
+        // Enforce valid transitions
+        $allowed = [
+            'Pending'     => ['In-Progress', 'Cancelled'],
+            'In-Progress' => ['Completed', 'Cancelled'],
+        ];
+
+        $current = $record->status;
+        if (!isset($allowed[$current]) || !in_array($validated['status'], $allowed[$current])) {
+            return redirect()->back()->with('error', "Cannot transition from {$current} to {$validated['status']}.");
+        }
+
+        $record->update(['status' => $validated['status']]);
+        $this->syncTruckStatus($record->truck_id);
+
+        return redirect()->back()->with('success', 'Maintenance status updated.');
     }
 
     public function destroy(MaintenanceRecord $record)

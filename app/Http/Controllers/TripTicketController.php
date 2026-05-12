@@ -51,7 +51,6 @@ class TripTicketController extends Controller
             'arrival_time'   => 'nullable|date_format:Y-m-d\TH:i',
             'distance_km'    => 'nullable|integer|min:0',
             'amount'         => 'nullable|numeric|min:0',
-            'status'         => 'required|in:Draft,In-Transit,Completed,Cancelled',
             'remarks'        => 'nullable|string',
         ]);
 
@@ -68,6 +67,7 @@ class TripTicketController extends Controller
         }
 
         $validated = $this->normalizeDateTimes($validated);
+        $validated['status'] = 'Draft';
 
         if (empty($validated['trip_no'])) {
             $validated['trip_no'] = 'TRIP-' . strtoupper(Str::random(6));
@@ -82,25 +82,27 @@ class TripTicketController extends Controller
     public function update(Request $request, TripTicket $trip)
     {
         $validated = $request->validate([
-            'trip_no' => 'required|string|max:50|unique:trip_tickets,trip_no,' . $trip->id,
-            'driver_id' => 'required|exists:drivers,id',
-            'truck_id' => 'required|exists:trucks,id',
-            'date_issued' => 'nullable|date',
-            'origin' => 'nullable|string|max:255',
-            'destination' => 'nullable|string|max:255',
+            'trip_no'        => 'required|string|max:50|unique:trip_tickets,trip_no,' . $trip->id,
+            'driver_id'      => 'required|exists:drivers,id',
+            'truck_id'       => 'required|exists:trucks,id',
+            'date_issued'    => 'nullable|date',
+            'origin'         => 'nullable|string|max:255',
+            'destination'    => 'nullable|string|max:255',
             'departure_time' => 'nullable|date_format:Y-m-d\TH:i',
-            'arrival_time' => 'nullable|date_format:Y-m-d\TH:i',
-            'distance_km' => 'nullable|integer|min:0',
-            'amount' => 'nullable|numeric|min:0',
-            'status' => 'required|in:Draft,In-Transit,Completed,Cancelled',
-            'remarks' => 'nullable|string',
+            'arrival_time'   => 'nullable|date_format:Y-m-d\TH:i',
+            'distance_km'    => 'nullable|integer|min:0',
+            'amount'         => 'nullable|numeric|min:0',
+            'remarks'        => 'nullable|string',
         ]);
 
         $validated = $this->normalizeDateTimes($validated);
 
         $oldDriverId = $trip->driver_id;
-        $oldTruckId = $trip->truck_id;
-        $oldStatus = $trip->status;
+        $oldTruckId  = $trip->truck_id;
+        $oldStatus   = $trip->status;
+
+        // Preserve current status — editing details doesn't change status
+        $validated['status'] = $trip->status;
 
         $trip->update($validated);
         $this->syncStatusesAfterTripChange($trip, $oldDriverId, $oldTruckId, $oldStatus);
@@ -108,10 +110,46 @@ class TripTicketController extends Controller
         return redirect()->back()->with('success', 'Trip ticket updated.');
     }
 
+    public function transition(Request $request, TripTicket $trip)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:In-Transit,Completed,Cancelled',
+        ]);
+
+        // Enforce valid transitions
+        $allowed = [
+            'Draft'      => ['In-Transit', 'Cancelled'],
+            'In-Transit' => ['Completed', 'Cancelled'],
+        ];
+
+        $current = $trip->status;
+        if (!isset($allowed[$current]) || !in_array($validated['status'], $allowed[$current])) {
+            return redirect()->back()->with('error', "Cannot transition from {$current} to {$validated['status']}.");
+        }
+
+        // Guard: when dispatching, truck & driver must be available
+        if ($validated['status'] === 'In-Transit') {
+            $truck = Truck::find($trip->truck_id);
+            if ($truck && $truck->status !== 'Available') {
+                return redirect()->back()->withErrors(['truck_id' => 'Truck is not available ('.$truck->status.').']);
+            }
+            $driver = Driver::find($trip->driver_id);
+            if ($driver && $driver->status !== 'Available') {
+                return redirect()->back()->withErrors(['driver_id' => 'Driver is not available ('.$driver->status.').']);
+            }
+        }
+
+        $oldStatus = $trip->status;
+        $trip->update(['status' => $validated['status']]);
+        $this->syncStatusesAfterTripChange($trip, null, null, $oldStatus);
+
+        return redirect()->back()->with('success', 'Trip status updated.');
+    }
+
     public function destroy(TripTicket $trip)
     {
         $oldDriverId = $trip->driver_id;
-        $oldTruckId = $trip->truck_id;
+        $oldTruckId  = $trip->truck_id;
 
         $trip->delete();
 
@@ -152,14 +190,14 @@ class TripTicketController extends Controller
         }
 
         $driver = Driver::find($trip->driver_id);
-        $truck = Truck::find($trip->truck_id);
+        $truck  = Truck::find($trip->truck_id);
         if (!$driver || !$truck) {
             return;
         }
 
         if ($trip->status === 'In-Transit') {
             $driver->update([
-                'status' => 'Covering',
+                'status'        => 'Covering',
                 'assigned_truck' => $truck->truck_code,
             ]);
             $truck->update(['status' => 'In-Transit']);
@@ -174,11 +212,11 @@ class TripTicketController extends Controller
 
             $driver->update([
                 'total_trips' => ($driver->total_trips ?? 0) + 1,
-                'last_trip' => $completedAt,
+                'last_trip'   => $completedAt,
             ]);
         }
 
-        // For Draft/Completed/Cancelled (or when no longer In-Transit), sync based on other active trips.
+        // For Draft/Completed/Cancelled, sync based on other active trips.
         $this->syncDriverFromActiveTrips($trip->driver_id);
         $this->syncTruckFromActiveTrips($trip->truck_id);
     }
@@ -186,9 +224,7 @@ class TripTicketController extends Controller
     private function syncDriverFromActiveTrips(int $driverId): void
     {
         $driver = Driver::find($driverId);
-        if (!$driver) {
-            return;
-        }
+        if (!$driver) return;
 
         $activeTrip = TripTicket::with('truck')
             ->where('driver_id', $driverId)
@@ -198,14 +234,14 @@ class TripTicketController extends Controller
 
         if ($activeTrip) {
             $driver->update([
-                'status' => 'Covering',
+                'status'        => 'Covering',
                 'assigned_truck' => optional($activeTrip->truck)->truck_code,
             ]);
             return;
         }
 
         $driver->update([
-            'status' => 'Available',
+            'status'        => 'Available',
             'assigned_truck' => null,
         ]);
     }
@@ -213,9 +249,7 @@ class TripTicketController extends Controller
     private function syncTruckFromActiveTrips(int $truckId): void
     {
         $truck = Truck::find($truckId);
-        if (!$truck) {
-            return;
-        }
+        if (!$truck) return;
 
         $hasActiveTrip = TripTicket::where('truck_id', $truckId)
             ->where('status', 'In-Transit')

@@ -54,6 +54,11 @@
             {{ session('success') }}
         </div>
     @endif
+    @if (session('error'))
+        <div class="notice-line" style="border-left-color:#dc2626; background:#fef2f2; color:#991b1b; margin-bottom:14px;">
+            {{ session('error') }}
+        </div>
+    @endif
     @if (isset($errors) && $errors->any())
         <div class="notice-line" style="border-left-color:#dc2626; background:#fef2f2; color:#991b1b; margin-bottom:14px;">
             {{ $errors->first() }}
@@ -78,9 +83,7 @@
                 </thead>
                 <tbody>
                     @forelse ($records as $rec)
-                        <tr data-truck="{{ strtolower($rec->truck->truck_code ?? '') }}"
-                        data-issue="{{ strtolower($rec->issue_description) }}"
-                        data-notes="{{ strtolower($rec->notes ?? '') }}">
+                        <tr>
                             <td style="font-weight:600;">{{ $rec->truck->truck_code ?? '—' }}</td>
                             <td>{{ $rec->issue_description }}</td>
                             <td>{{ $rec->start_date ?? '—' }}</td>
@@ -91,41 +94,106 @@
                             </td>
                             <td>{{ $rec->notes ?? '—' }}</td>
                             <td>{{ $rec->cost ? '₱'.number_format($rec->cost,2) : '—' }}</td>
-                            <td>
-                                <details>
-                                    <summary class="btn btn-secondary" style="display:inline-flex; cursor:pointer; font-size:12px;">
-                                        <span class="material-symbols-outlined">build</span>
-                                        Update
-                                    </summary>
-                                    <div style="margin-top:10px;">
-                                        <form action="{{ url('/maintenance/'.$rec->id) }}" method="POST"
-                                            style="display:grid; grid-template-columns: repeat(4, minmax(140px,1fr)); gap:9px; align-items:end;">
+                            <td style="position:relative;">
+                                {{-- Status transition action buttons --}}
+                                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                    @if ($rec->status === 'Pending')
+                                        <form action="{{ url('/maintenance/'.$rec->id.'/transition') }}" method="POST" style="display:inline;">
                                             @csrf
-                                            <select name="truck_id" class="search-input" style="width:100%;" required>
-                                                @foreach ($trucks as $truck)
-                                                    <option value="{{ $truck->id }}" {{ $rec->truck_id === $truck->id ? 'selected' : '' }}>
-                                                        {{ $truck->truck_code }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <input name="issue_description" class="search-input" style="width:100%;" value="{{ $rec->issue_description }}" required>
-                                            <input type="date" name="start_date" class="search-input" style="width:100%;" value="{{ $rec->start_date }}">
-                                            <select name="status" class="search-input" style="width:100%;" required>
-                                                @foreach (['Pending','In-Progress','Completed','Cancelled'] as $st)
-                                                    <option value="{{ $st }}" {{ $rec->status === $st ? 'selected' : '' }}>{{ $st }}</option>
-                                                @endforeach
-                                            </select>
-                                            <input name="notes" class="search-input" style="width:100%;" value="{{ $rec->notes }}" placeholder="Notes">
-                                            <input name="cost" class="search-input" style="width:100%;" value="{{ $rec->cost }}" placeholder="Cost">
-                                            <button class="btn btn-primary" type="submit" style="grid-column: 3 / 5; justify-content:center;">Save Changes</button>
+                                            <input type="hidden" name="status" value="In-Progress">
+                                            <button type="submit" class="btn btn-primary" style="padding:5px 11px; font-size:12px; gap:4px;">
+                                                <span class="material-symbols-outlined" style="font-size:14px;">play_arrow</span>
+                                                Start
+                                            </button>
                                         </form>
-                                        <form action="{{ url('/maintenance/'.$rec->id.'/delete') }}" method="POST" style="margin-top:8px;">
+                                        <form action="{{ url('/maintenance/'.$rec->id.'/transition') }}" method="POST" style="display:inline;"
+                                            onsubmit="return confirm('Cancel this maintenance record?')">
                                             @csrf
-                                            <button class="btn btn-cancel" type="submit"
-                                                onclick="return confirm('Delete this record?')">Delete Record</button>
+                                            <input type="hidden" name="status" value="Cancelled">
+                                            <button type="submit" class="btn btn-cancel" style="padding:5px 11px; font-size:12px;">
+                                                Cancel
+                                            </button>
                                         </form>
-                                    </div>
-                                </details>
+                                    @elseif ($rec->status === 'In-Progress')
+                                        <form action="{{ url('/maintenance/'.$rec->id.'/transition') }}" method="POST" style="display:inline;">
+                                            @csrf
+                                            <input type="hidden" name="status" value="Completed">
+                                            <button type="submit" class="btn btn-primary" style="padding:5px 11px; font-size:12px; gap:4px; background:#059669;">
+                                                <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>
+                                                Complete
+                                            </button>
+                                        </form>
+                                        <form action="{{ url('/maintenance/'.$rec->id.'/transition') }}" method="POST" style="display:inline;"
+                                            onsubmit="return confirm('Cancel this maintenance record?')">
+                                            @csrf
+                                            <input type="hidden" name="status" value="Cancelled">
+                                            <button type="submit" class="btn btn-cancel" style="padding:5px 11px; font-size:12px;">
+                                                Cancel
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    {{-- Edit details (non-status fields) --}}
+                                    @if (!in_array($rec->status, ['Completed', 'Cancelled']))
+                                        <details style="display:inline-block;">
+                                            <summary class="btn btn-secondary" style="display:inline-flex; cursor:pointer; padding:5px 11px; font-size:12px; gap:4px;">
+                                                <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                                                Edit
+                                            </summary>
+                                            <div style="
+                                                position:absolute; right:0; top:calc(100% + 4px);
+                                                background:#fff; border:1px solid #e2e8f0; border-radius:10px;
+                                                box-shadow:0 8px 24px rgba(0,0,0,.12); padding:16px;
+                                                min-width:500px; z-index:300;">
+                                                <form action="{{ url('/maintenance/'.$rec->id) }}" method="POST"
+                                                    style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                                    @csrf
+                                                    <div>
+                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck</label>
+                                                        <select name="truck_id" class="search-input" style="width:100%;" required>
+                                                            @foreach ($trucks as $truck)
+                                                                <option value="{{ $truck->id }}" {{ $rec->truck_id === $truck->id ? 'selected' : '' }}>
+                                                                    {{ $truck->truck_code }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Start Date</label>
+                                                        <input type="date" name="start_date" class="search-input" style="width:100%;" value="{{ $rec->start_date }}">
+                                                    </div>
+                                                    <div style="grid-column: 1 / -1;">
+                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Issue Description</label>
+                                                        <input name="issue_description" class="search-input" style="width:100%;" value="{{ $rec->issue_description }}" required>
+                                                    </div>
+                                                    <div>
+                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Notes</label>
+                                                        <input name="notes" class="search-input" style="width:100%;" value="{{ $rec->notes }}" placeholder="Notes">
+                                                    </div>
+                                                    <div>
+                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Cost</label>
+                                                        <input name="cost" class="search-input" style="width:100%;" value="{{ $rec->cost }}" placeholder="Cost (optional)">
+                                                    </div>
+                                                    <div style="grid-column: 1 / -1; display:flex; gap:8px; justify-content:flex-end; padding-top:4px;">
+                                                        <button class="btn btn-primary" type="submit" style="font-size:12px; padding:6px 14px;">Save Changes</button>
+                                                    </div>
+                                                </form>
+                                                <form action="{{ url('/maintenance/'.$rec->id.'/delete') }}" method="POST" style="margin-top:8px;">
+                                                    @csrf
+                                                    <button class="btn btn-cancel" type="submit" style="font-size:12px;"
+                                                        onclick="return confirm('Delete this record?')">Delete Record</button>
+                                                </form>
+                                            </div>
+                                        </details>
+                                    @else
+                                        {{-- Completed/Cancelled: only allow delete --}}
+                                        <form action="{{ url('/maintenance/'.$rec->id.'/delete') }}" method="POST" style="display:inline;">
+                                            @csrf
+                                            <button class="btn btn-cancel" type="submit" style="font-size:12px; padding:5px 11px;"
+                                                onclick="return confirm('Delete this record?')">Delete</button>
+                                        </form>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -135,6 +203,7 @@
             </table>
         </div>
     </div>
+
     {{-- ===================== ADD MAINTENANCE MODAL ===================== --}}
     <div class="modal" id="addMaintenanceModal">
         <div class="modal-content" style="max-width:680px;">
@@ -145,6 +214,10 @@
             <form action="{{ url('/maintenance') }}" method="POST">
                 @csrf
                 <div class="modal-body">
+                    <p style="font-size:12px; color:#64748b; margin-bottom:14px; background:#f8fafc; border-radius:7px; padding:8px 12px; border:1px solid #e2e8f0;">
+                        <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; color:#d97706;">info</span>
+                        New records start as <strong>Pending</strong>. Use the <strong>Start</strong> button on the table to begin work.
+                    </p>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Truck <span class="required">*</span></label>
@@ -156,12 +229,8 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Status <span class="required">*</span></label>
-                            <select name="status" required>
-                                @foreach (['Pending','In-Progress','Completed','Cancelled'] as $st)
-                                    <option value="{{ $st }}">{{ $st }}</option>
-                                @endforeach
-                            </select>
+                            <label>Start Date</label>
+                            <input type="date" name="start_date">
                         </div>
                     </div>
                     <div class="form-group" style="margin-bottom:14px;">
@@ -170,17 +239,13 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Start Date</label>
-                            <input type="date" name="start_date">
-                        </div>
-                        <div class="form-group">
                             <label>Cost</label>
                             <input type="text" name="cost" placeholder="₱ Cost (optional)">
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Notes</label>
-                        <input type="text" name="notes" placeholder="Notes (optional)">
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <input type="text" name="notes" placeholder="Notes (optional)">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -205,6 +270,13 @@
 
         document.getElementById('addMaintenanceModal').addEventListener('click', function (e) {
             if (e.target === this) closeMaintenanceModal();
+        });
+
+        // Close edit dropdowns when clicking outside
+        document.addEventListener('click', function (e) {
+            document.querySelectorAll('details[open]').forEach(d => {
+                if (!d.contains(e.target)) d.removeAttribute('open');
+            });
         });
 
         // ── Maintenance Filter Panel ─────────────────────────────
@@ -237,35 +309,6 @@
                 .map(cb => cb.value);
 
             document.querySelectorAll('.drivers-table tbody tr').forEach(row => {
-                const truck = row.dataset.truck ?? '';
-                const issue = row.dataset.issue ?? '';
-                const notes = row.dataset.notes ?? '';
-
-                const matchesSearch = !query
-                    || truck.includes(query)
-                    || issue.includes(query)
-                    || notes.includes(query);
-
-                const badge  = row.querySelector('.status-badge');
-                const status = Array.from(badge?.classList ?? [])
-                    .find(c => c.startsWith('status-') && c !== 'status-badge')
-                    ?.replace('status-', '') ?? '';
-
-                row.style.display = (matchesSearch && checked.includes(status)) ? '' : 'none';
-            });
-        }
-
-        // ── Search ───────────────────────────────────────────────
-        document.getElementById('maintSearch').addEventListener('input', function () {
-            applyMaintFilters();
-        });
-
-        function applyMaintFilters() {
-            const query   = document.getElementById('maintSearch')?.value.trim().toLowerCase() ?? '';
-            const checked = Array.from(document.querySelectorAll('.maint-status-filter:checked'))
-                .map(cb => cb.value);
-
-            document.querySelectorAll('.drivers-table tbody tr').forEach(row => {
                 const cells = row.querySelectorAll('td');
                 if (!cells.length) return;
 
@@ -286,5 +329,7 @@
                 row.style.display = (matchesSearch && checked.includes(status)) ? '' : 'none';
             });
         }
+
+        document.getElementById('maintSearch').addEventListener('input', applyMaintFilters);
     </script>
 @endsection
