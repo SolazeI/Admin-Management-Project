@@ -2,21 +2,33 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AdminSetting;
 use App\Models\MaintenanceRecord;
 use App\Models\Truck;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class MaintenanceRecordController extends Controller
 {
+    private const ADMIN_PASSWORD_KEY = 'admin_password_hash';
+
     public function index()
     {
         $trucks = Truck::orderBy('truck_code')->get();
+
         $records = MaintenanceRecord::with('truck')
+            ->where('is_archived', false)
             ->orderByDesc('created_at')
             ->limit(100)
             ->get();
 
-        return view('maintenance', compact('trucks', 'records'));
+        $archivedRecords = MaintenanceRecord::with('truck')
+            ->where('is_archived', true)
+            ->orderByDesc('created_at')
+            ->limit(100)
+            ->get();
+
+        return view('maintenance', compact('trucks', 'records', 'archivedRecords'));
     }
 
     public function store(Request $request)
@@ -83,8 +95,43 @@ class MaintenanceRecordController extends Controller
         return redirect()->back()->with('success', 'Maintenance status updated.');
     }
 
-    public function destroy(MaintenanceRecord $record)
+    public function archive(Request $request, MaintenanceRecord $record)
     {
+        $validated = $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        if (!$this->checkAdminPassword($validated['password'])) {
+            return redirect()->back()->with('error', 'Incorrect password.');
+        }
+
+        $truckId = $record->truck_id;
+        $record->update(['is_archived' => true]);
+
+        // Re-sync — archived records don't count toward truck status
+        $this->syncTruckStatus($truckId);
+
+        return redirect()->back()->with('success', 'Maintenance record archived.');
+    }
+
+    public function unarchive(MaintenanceRecord $record)
+    {
+        $record->update(['is_archived' => false]);
+        $this->syncTruckStatus($record->truck_id);
+
+        return redirect()->back()->with('success', 'Maintenance record restored.');
+    }
+
+    public function destroy(Request $request, MaintenanceRecord $record)
+    {
+        $validated = $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        if (!$this->checkAdminPassword($validated['password'])) {
+            return redirect()->back()->with('error', 'Incorrect password.');
+        }
+
         $truckId = $record->truck_id;
         $record->delete();
         $this->syncTruckStatus($truckId);
@@ -92,8 +139,18 @@ class MaintenanceRecordController extends Controller
         return redirect()->back()->with('success', 'Maintenance record deleted.');
     }
 
+    private function checkAdminPassword(string $password): bool
+    {
+        $setting = AdminSetting::where('key', self::ADMIN_PASSWORD_KEY)->first();
+        if (!$setting || !is_string($setting->value) || $setting->value === '') {
+            return false;
+        }
+
+        return Hash::check($password, $setting->value);
+    }
+
     /**
-     * Derive and apply the correct truck status based on active maintenance records.
+     * Derive and apply the correct truck status based on active, non-archived maintenance records.
      * In-Transit is handled by trip tickets — don't override it here.
      */
     private function syncTruckStatus(int $truckId): void
@@ -106,6 +163,7 @@ class MaintenanceRecordController extends Controller
 
         $hasActive = MaintenanceRecord::where('truck_id', $truckId)
             ->whereIn('status', ['Pending', 'In-Progress'])
+            ->where('is_archived', false)
             ->exists();
 
         $truck->update([

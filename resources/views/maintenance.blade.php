@@ -12,6 +12,10 @@
             <p class="page-subtitle">Manage weekly/monthly maintenance entries and view summaries.</p>
         </div>
         <div class="header-actions">
+            <button class="btn btn-secondary" id="archivedMaintenanceBtn">
+                <span class="material-symbols-outlined">folder</span>
+                Archived
+            </button>
             <button class="btn btn-primary" id="addMaintenanceBtn">
                 <span class="material-symbols-outlined">add</span>
                 Add Maintenance Record
@@ -65,7 +69,7 @@
         </div>
     @endif
 
-    {{-- Records Table --}}
+    {{-- ── Records Table ─────────────────────────────────────────────── --}}
     <div class="drivers-section">
         <h2 class="section-title">Maintenance Records ({{ $records->count() }})</h2>
         <div class="table-container">
@@ -95,8 +99,9 @@
                             <td>{{ $rec->notes ?? '—' }}</td>
                             <td>{{ $rec->cost ? '₱'.number_format($rec->cost,2) : '—' }}</td>
                             <td style="position:relative;">
-                                {{-- Status transition action buttons --}}
                                 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+
+                                    {{-- Status transition buttons --}}
                                     @if ($rec->status === 'Pending')
                                         <form action="{{ url('/maintenance/'.$rec->id.'/transition') }}" method="POST" style="display:inline;">
                                             @csrf
@@ -133,7 +138,7 @@
                                         </form>
                                     @endif
 
-                                    {{-- Edit details (non-status fields) --}}
+                                    {{-- Edit (active records only) --}}
                                     @if (!in_array($rec->status, ['Completed', 'Cancelled']))
                                         <details style="display:inline-block;">
                                             <summary class="btn btn-secondary" style="display:inline-flex; cursor:pointer; padding:5px 11px; font-size:12px; gap:4px;">
@@ -178,21 +183,25 @@
                                                         <button class="btn btn-primary" type="submit" style="font-size:12px; padding:6px 14px;">Save Changes</button>
                                                     </div>
                                                 </form>
-                                                <form action="{{ url('/maintenance/'.$rec->id.'/delete') }}" method="POST" style="margin-top:8px;">
-                                                    @csrf
-                                                    <button class="btn btn-cancel" type="submit" style="font-size:12px;"
-                                                        onclick="return confirm('Delete this record?')">Delete Record</button>
-                                                </form>
+                                                {{-- Archive replaces Delete for active records --}}
+                                                <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9;">
+                                                    <button type="button" class="btn btn-secondary" style="font-size:12px; gap:4px;"
+                                                        onclick="confirmArchiveMaint({{ $rec->id }}, '{{ addslashes($rec->issue_description) }}')">
+                                                        <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
+                                                        Archive Record
+                                                    </button>
+                                                </div>
                                             </div>
                                         </details>
                                     @else
-                                        {{-- Completed/Cancelled: only allow delete --}}
-                                        <form action="{{ url('/maintenance/'.$rec->id.'/delete') }}" method="POST" style="display:inline;">
-                                            @csrf
-                                            <button class="btn btn-cancel" type="submit" style="font-size:12px; padding:5px 11px;"
-                                                onclick="return confirm('Delete this record?')">Delete</button>
-                                        </form>
+                                        {{-- Completed / Cancelled: archive only --}}
+                                        <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
+                                            onclick="confirmArchiveMaint({{ $rec->id }}, '{{ addslashes($rec->issue_description) }}')">
+                                            <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
+                                            Archive
+                                        </button>
                                     @endif
+
                                 </div>
                             </td>
                         </tr>
@@ -204,7 +213,7 @@
         </div>
     </div>
 
-    {{-- ===================== ADD MAINTENANCE MODAL ===================== --}}
+    {{-- ── ADD MAINTENANCE MODAL ─────────────────────────────────────── --}}
     <div class="modal" id="addMaintenanceModal">
         <div class="modal-content" style="max-width:680px;">
             <div class="modal-header">
@@ -258,83 +267,160 @@
             </form>
         </div>
     </div>
-<<<<<<< HEAD
 
-    <script>
-        document.getElementById('addMaintenanceBtn').addEventListener('click', () => {
-            document.getElementById('addMaintenanceModal').classList.add('show');
-        });
+    {{-- ── ARCHIVED MAINTENANCE MODAL ────────────────────────────────── --}}
+    <div class="modal" id="archivedMaintenanceModal">
+        <div class="modal-content archived-modal">
+            <div class="modal-header">
+                <h2>Archived Maintenance Records</h2>
+                <div class="search-wrapper">
+                    <span class="material-symbols-outlined search-icon">search</span>
+                    <input type="text" class="search-input" id="archivedMaintSearch" placeholder="Search archived records">
+                </div>
+            </div>
+            <div class="modal-body" style="padding:0;">
+                <div style="overflow-x:auto; padding:0 24px 24px;">
+                    <table class="archived-table">
+                        <thead>
+                            <tr>
+                                <th>Truck</th>
+                                <th>Issue Description</th>
+                                <th>Start Date</th>
+                                <th>Status</th>
+                                <th>Cost</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="archivedMaintTableBody">
+                            @forelse ($archivedRecords as $archived)
+                                <tr>
+                                    <td style="font-weight:600;">{{ $archived->truck->truck_code ?? '—' }}</td>
+                                    <td>{{ $archived->issue_description }}</td>
+                                    <td>{{ $archived->start_date ?? '—' }}</td>
+                                    <td>
+                                        <span class="status-badge status-{{ strtolower(str_replace(['-',' '],'', $archived->status)) }}">
+                                            {{ $archived->status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ $archived->cost ? '₱'.number_format($archived->cost,2) : '—' }}</td>
+                                    <td>
+                                        <div style="display:flex; gap:6px; align-items:center;">
+                                            <form action="{{ url('/maintenance/'.$archived->id.'/unarchive') }}" method="POST" style="display:inline;">
+                                                @csrf
+                                                <button type="submit" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;">
+                                                    <span class="material-symbols-outlined" style="font-size:14px;">restore</span>
+                                                    Restore
+                                                </button>
+                                            </form>
+                                            <span style="display:inline-block; width:1px; height:22px; background:#e2e8f0; margin:0 4px;"></span>
+                                            <button type="button"
+                                                style="
+                                                    display:inline-flex; align-items:center; gap:4px;
+                                                    font-size:12px; padding:5px 11px; border-radius:6px;
+                                                    border:1px solid #fca5a5; background:#fff5f5;
+                                                    color:#dc2626; font-family:'Poppins',sans-serif;
+                                                    font-weight:600; cursor:pointer; line-height:1;"
+                                                onclick="confirmDeleteMaint({{ $archived->id }}, '{{ addslashes($archived->issue_description) }}')">
+                                                <span class="material-symbols-outlined" style="font-size:14px;">delete_forever</span>
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="6" class="no-data">No archived maintenance records.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('archivedMaintenanceModal')">Close</button>
+            </div>
+        </div>
+    </div>
 
-        function closeMaintenanceModal() {
-            document.getElementById('addMaintenanceModal').classList.remove('show');
-        }
+    {{-- ── ARCHIVE WARNING MODALS ────────────────────────────────────── --}}
+    <div class="modal" id="maintArchiveWarning1">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon">archive</span>
+                <h2>Archive Maintenance Record</h2>
+            </div>
+            <div class="modal-body">
+                <p><strong>Issue:</strong> <span id="archiveMaintLabel"></span></p>
+                <p>This record will be moved to the archive. You can restore it later.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('maintArchiveWarning1')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="proceedToMaintArchivePassword()">Yes, Archive</button>
+            </div>
+        </div>
+    </div>
 
-        document.getElementById('addMaintenanceModal').addEventListener('click', function (e) {
-            if (e.target === this) closeMaintenanceModal();
-        });
+    <div class="modal" id="maintArchiveWarning2">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon">lock</span>
+                <h2>Confirm with Password</h2>
+            </div>
+            <div class="modal-body">
+                <p>Enter admin password to archive this record.</p>
+                <input type="password" class="password-input" id="maintArchivePassword" placeholder="Admin password">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('maintArchiveWarning2')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmMaintArchiveAction()">Confirm</button>
+            </div>
+        </div>
+    </div>
 
-        // Close edit dropdowns when clicking outside
-        document.addEventListener('click', function (e) {
-            document.querySelectorAll('details[open]').forEach(d => {
-                if (!d.contains(e.target)) d.removeAttribute('open');
-            });
-        });
+    {{-- ── DELETE WARNING MODALS ─────────────────────────────────────── --}}
+    <div class="modal" id="maintDeleteWarning1">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon" style="color:#dc2626;">warning</span>
+                <h2>Permanently Delete Record</h2>
+            </div>
+            <div class="modal-body">
+                <p><strong>Issue:</strong> <span id="deleteMaintLabel"></span></p>
+                <p style="color:#dc2626; font-weight:600;">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('maintDeleteWarning1')">Cancel</button>
+                <button type="button" class="btn btn-primary" style="background:#dc2626;"
+                    onclick="proceedToMaintDeletePassword()">Yes, Delete Permanently</button>
+            </div>
+        </div>
+    </div>
 
-        // ── Maintenance Filter Panel ─────────────────────────────
-        const maintFilterBtn   = document.getElementById('maintFilterBtn');
-        const maintFilterPanel = document.getElementById('maintFilterPanel');
+    <div class="modal" id="maintDeleteWarning2">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon">lock</span>
+                <h2>Confirm with Password</h2>
+            </div>
+            <div class="modal-body">
+                <p>Enter admin password to permanently delete this record.</p>
+                <input type="password" class="password-input" id="maintDeletePassword" placeholder="Admin password">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('maintDeleteWarning2')">Cancel</button>
+                <button type="button" class="btn btn-primary" style="background:#dc2626;"
+                    onclick="confirmMaintDeleteAction()">Delete Permanently</button>
+            </div>
+        </div>
+    </div>
 
-        maintFilterBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            maintFilterPanel.style.display = maintFilterPanel.style.display === 'block' ? 'none' : 'block';
-        });
+    {{-- Hidden forms submitted via JS --}}
+    <form id="archiveMaintForm" method="POST" style="display:none;">
+        @csrf
+        <input type="hidden" name="password" id="archiveMaintPasswordInput">
+    </form>
+    <form id="deleteMaintForm" method="POST" style="display:none;">
+        @csrf
+        <input type="hidden" name="password" id="deleteMaintPasswordInput">
+    </form>
 
-        document.addEventListener('click', (e) => {
-            if (!maintFilterPanel.contains(e.target) && e.target !== maintFilterBtn) {
-                maintFilterPanel.style.display = 'none';
-            }
-        });
-
-        document.querySelectorAll('.maint-status-filter').forEach(cb => {
-            cb.addEventListener('change', applyMaintFilters);
-        });
-
-        function clearMaintFilters() {
-            document.querySelectorAll('.maint-status-filter').forEach(cb => cb.checked = true);
-            applyMaintFilters();
-        }
-
-        function applyMaintFilters() {
-            const query   = document.getElementById('maintSearch')?.value.trim().toLowerCase() ?? '';
-            const checked = Array.from(document.querySelectorAll('.maint-status-filter:checked'))
-                .map(cb => cb.value);
-
-            document.querySelectorAll('.drivers-table tbody tr').forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (!cells.length) return;
-
-                const truck   = cells[0]?.textContent.trim().toLowerCase() ?? '';
-                const issue   = cells[1]?.textContent.trim().toLowerCase() ?? '';
-                const notes   = cells[4]?.textContent.trim().toLowerCase() ?? '';
-
-                const matchesSearch = !query
-                    || truck.includes(query)
-                    || issue.includes(query)
-                    || notes.includes(query);
-
-                const badge  = row.querySelector('.status-badge');
-                const status = Array.from(badge?.classList ?? [])
-                    .find(c => c.startsWith('status-') && c !== 'status-badge')
-                    ?.replace('status-', '') ?? '';
-
-                row.style.display = (matchesSearch && checked.includes(status)) ? '' : 'none';
-            });
-        }
-
-        document.getElementById('maintSearch').addEventListener('input', applyMaintFilters);
-    </script>
-@endsection
-=======
     <script src="{{ asset('js/maintenance.js') }}"></script>
 @endsection
->>>>>>> 2acb994d721b26ccb58fcb8d54e0528b4dc64e62

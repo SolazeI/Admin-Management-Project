@@ -7,10 +7,14 @@ use App\Models\TripTicket;
 use App\Models\Truck;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use App\Models\AdminSetting;
 use Illuminate\Support\Str;
 
 class TripTicketController extends Controller
 {
+    private const ADMIN_PASSWORD_KEY = 'admin_password_hash';
+
     public function index()
     {
         // Available only — for the Add modal
@@ -31,11 +35,21 @@ class TripTicketController extends Controller
         $allTrucks = Truck::orderBy('truck_code')->get();
 
         $tripTickets = TripTicket::with(['driver', 'truck'])
+            ->where('is_archived', false)
             ->orderByDesc('created_at')
             ->limit(50)
             ->get();
 
-        return view('trips', compact('drivers', 'trucks', 'allDrivers', 'allTrucks', 'tripTickets'));
+        $archivedTripTickets = TripTicket::with(['driver', 'truck'])
+            ->where('is_archived', true)
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        return view('trips', compact(
+            'drivers', 'trucks', 'allDrivers', 'allTrucks',
+            'tripTickets', 'archivedTripTickets'
+        ));
     }
 
     public function store(Request $request)
@@ -146,8 +160,49 @@ class TripTicketController extends Controller
         return redirect()->back()->with('success', 'Trip status updated.');
     }
 
-    public function destroy(TripTicket $trip)
+    public function archive(Request $request, TripTicket $trip)
     {
+        $validated = $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        if (!$this->checkAdminPassword($validated['password'])) {
+            return redirect()->back()->with('error', 'Incorrect password.');
+        }
+
+        $oldDriverId = $trip->driver_id;
+        $oldTruckId  = $trip->truck_id;
+
+        $trip->update(['is_archived' => true]);
+
+        // Re-sync availability since the trip is no longer active
+        if ($oldDriverId) {
+            $this->syncDriverFromActiveTrips($oldDriverId);
+        }
+        if ($oldTruckId) {
+            $this->syncTruckFromActiveTrips($oldTruckId);
+        }
+
+        return redirect()->back()->with('success', 'Trip ticket archived.');
+    }
+
+    public function unarchive(TripTicket $trip)
+    {
+        $trip->update(['is_archived' => false]);
+
+        return redirect()->back()->with('success', 'Trip ticket restored.');
+    }
+
+    public function destroy(Request $request, TripTicket $trip)
+    {
+        $validated = $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        if (!$this->checkAdminPassword($validated['password'])) {
+            return redirect()->back()->with('error', 'Incorrect password.');
+        }
+
         $oldDriverId = $trip->driver_id;
         $oldTruckId  = $trip->truck_id;
 
@@ -162,6 +217,16 @@ class TripTicketController extends Controller
         }
 
         return redirect()->back()->with('success', 'Trip ticket deleted.');
+    }
+
+    private function checkAdminPassword(string $password): bool
+    {
+        $setting = AdminSetting::where('key', self::ADMIN_PASSWORD_KEY)->first();
+        if (!$setting || !is_string($setting->value) || $setting->value === '') {
+            return false;
+        }
+
+        return Hash::check($password, $setting->value);
     }
 
     private function normalizeDateTimes(array $validated): array
@@ -197,7 +262,7 @@ class TripTicketController extends Controller
 
         if ($trip->status === 'In-Transit') {
             $driver->update([
-                'status'        => 'Covering',
+                'status'         => 'Covering',
                 'assigned_truck' => $truck->truck_code,
             ]);
             $truck->update(['status' => 'In-Transit']);
@@ -229,19 +294,20 @@ class TripTicketController extends Controller
         $activeTrip = TripTicket::with('truck')
             ->where('driver_id', $driverId)
             ->where('status', 'In-Transit')
+            ->where('is_archived', false)
             ->latest('updated_at')
             ->first();
 
         if ($activeTrip) {
             $driver->update([
-                'status'        => 'Covering',
+                'status'         => 'Covering',
                 'assigned_truck' => optional($activeTrip->truck)->truck_code,
             ]);
             return;
         }
 
         $driver->update([
-            'status'        => 'Available',
+            'status'         => 'Available',
             'assigned_truck' => null,
         ]);
     }
@@ -253,6 +319,7 @@ class TripTicketController extends Controller
 
         $hasActiveTrip = TripTicket::where('truck_id', $truckId)
             ->where('status', 'In-Transit')
+            ->where('is_archived', false)
             ->exists();
 
         $truck->update([

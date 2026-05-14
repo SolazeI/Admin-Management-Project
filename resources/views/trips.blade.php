@@ -1,10 +1,8 @@
 @extends('layouts.app')
-
 @php
     $active = 'trips';
     $title  = 'Trip Tickets';
 @endphp
-
 @section('content')
     <div class="content-header app-divider">
         <div class="header-text">
@@ -12,6 +10,10 @@
             <p class="page-subtitle">Manage weekly/monthly trip entries and view monthly summaries.</p>
         </div>
         <div class="header-actions">
+            <button class="btn btn-secondary" id="archivedTripsBtn">
+                <span class="material-symbols-outlined">folder</span>
+                Archived
+            </button>
             <button class="btn btn-primary" id="addTripBtn">
                 <span class="material-symbols-outlined">add</span>
                 Trip Ticket Entry
@@ -65,7 +67,7 @@
         </div>
     @endif
 
-    {{-- Tickets Table --}}
+    {{-- ── Tickets Table ─────────────────────────────────────────────── --}}
     <div class="drivers-section">
         <h2 class="section-title">All Trip Tickets</h2>
         <div class="table-container">
@@ -216,21 +218,25 @@
                                                         <button class="btn btn-primary" type="submit" style="font-size:12px; padding:6px 14px;">Save Changes</button>
                                                     </div>
                                                 </form>
-                                                <form action="{{ url('/trips/'.$trip->id.'/delete') }}" method="POST" style="margin-top:8px;">
-                                                    @csrf
-                                                    <button class="btn btn-cancel" type="submit" style="font-size:12px;"
-                                                        onclick="return confirm('Delete this trip ticket?')">Delete Trip</button>
-                                                </form>
+                                                {{-- Archive replaces Delete --}}
+                                                <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9;">
+                                                    <button type="button" class="btn btn-secondary" style="font-size:12px; gap:4px;"
+                                                        onclick="confirmArchiveTrip({{ $trip->id }}, '{{ addslashes($trip->trip_no) }}')">
+                                                        <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
+                                                        Archive Trip
+                                                    </button>
+                                                </div>
                                             </div>
                                         </details>
                                     @else
-                                        {{-- Completed/Cancelled: only allow delete --}}
-                                        <form action="{{ url('/trips/'.$trip->id.'/delete') }}" method="POST" style="display:inline;">
-                                            @csrf
-                                            <button class="btn btn-cancel" type="submit" style="font-size:12px; padding:5px 11px;"
-                                                onclick="return confirm('Delete this trip ticket?')">Delete</button>
-                                        </form>
+                                        {{-- Completed / Cancelled: archive only --}}
+                                        <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
+                                            onclick="confirmArchiveTrip({{ $trip->id }}, '{{ addslashes($trip->trip_no) }}')">
+                                            <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
+                                            Archive
+                                        </button>
                                     @endif
+
                                 </div>
                             </td>
                         </tr>
@@ -242,7 +248,7 @@
         </div>
     </div>
 
-    {{-- ===================== ADD TRIP TICKET MODAL ===================== --}}
+    {{-- ── ADD TRIP TICKET MODAL ─────────────────────────────────────── --}}
     <div class="modal" id="addTripModal">
         <div class="modal-content" style="max-width:900px;">
             <div class="modal-header">
@@ -324,82 +330,163 @@
         </div>
     </div>
 
-<<<<<<< HEAD
-    <script>
-        document.getElementById('addTripBtn').addEventListener('click', () => {
-            document.getElementById('addTripModal').classList.add('show');
-        });
+    {{-- ── ARCHIVED TRIPS MODAL ──────────────────────────────────────── --}}
+    <div class="modal" id="archivedTripsModal">
+        <div class="modal-content archived-modal">
+            <div class="modal-header">
+                <h2>Archived Trip Tickets</h2>
+                <div class="search-wrapper">
+                    <span class="material-symbols-outlined search-icon">search</span>
+                    <input type="text" class="search-input" id="archivedTripSearch" placeholder="Search archived trips">
+                </div>
+            </div>
+            <div class="modal-body" style="padding:0;">
+                <div style="overflow-x:auto; padding:0 24px 24px;">
+                    <table class="archived-table">
+                        <thead>
+                            <tr>
+                                <th>Trip No.</th>
+                                <th>Truck</th>
+                                <th>Driver</th>
+                                <th>Destination</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="archivedTripsTableBody">
+                            @forelse ($archivedTripTickets as $archived)
+                                <tr>
+                                    <td style="font-weight:700;">{{ $archived->trip_no }}</td>
+                                    <td>{{ $archived->truck->truck_code ?? '—' }}</td>
+                                    <td>{{ $archived->driver->full_name ?? '—' }}</td>
+                                    <td>{{ $archived->destination ?? '—' }}</td>
+                                    <td>{{ $archived->amount ? '₱'.number_format($archived->amount,2) : '—' }}</td>
+                                    <td>
+                                        <span class="status-badge status-{{ strtolower(str_replace(['-',' '],'', $archived->status)) }}">
+                                            {{ $archived->status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div style="display:flex; gap:6px; align-items:center;">
+                                            {{-- Restore: simple POST, no password --}}
+                                            <form action="{{ url('/trips/'.$archived->id.'/unarchive') }}" method="POST" style="display:inline;">
+                                                @csrf
+                                                <button type="submit" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;">
+                                                    <span class="material-symbols-outlined" style="font-size:14px;">restore</span>
+                                                    Restore
+                                                </button>
+                                            </form>
+                                            {{-- Visual separator + safe spacing before destructive action --}}
+                                            <span style="display:inline-block; width:1px; height:22px; background:#e2e8f0; margin:0 4px;"></span>
+                                            <button type="button"
+                                                style="
+                                                    display:inline-flex; align-items:center; gap:4px;
+                                                    font-size:12px; padding:5px 11px; border-radius:6px;
+                                                    border:1px solid #fca5a5; background:#fff5f5;
+                                                    color:#dc2626; font-family:'Poppins',sans-serif;
+                                                    font-weight:600; cursor:pointer; line-height:1;"
+                                                onclick="confirmDeleteTrip({{ $archived->id }}, '{{ addslashes($archived->trip_no) }}')">
+                                                <span class="material-symbols-outlined" style="font-size:14px;">delete_forever</span>
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="7" class="no-data">No archived trip tickets.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('archivedTripsModal')">Close</button>
+            </div>
+        </div>
+    </div>
 
-        function closeTripModal() {
-            document.getElementById('addTripModal').classList.remove('show');
-        }
+    {{-- ── ARCHIVE WARNING MODALS ────────────────────────────────────── --}}
+    <div class="modal" id="tripArchiveWarning1">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon">archive</span>
+                <h2>Archive Trip Ticket</h2>
+            </div>
+            <div class="modal-body">
+                <p><strong>Trip No:</strong> <span id="archiveTripLabel"></span></p>
+                <p>This ticket will be moved to the archive. You can restore it later.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('tripArchiveWarning1')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="proceedToArchivePassword()">Yes, Archive</button>
+            </div>
+        </div>
+    </div>
 
-        document.getElementById('addTripModal').addEventListener('click', function (e) {
-            if (e.target === this) closeTripModal();
-        });
+    <div class="modal" id="tripArchiveWarning2">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon">lock</span>
+                <h2>Confirm with Password</h2>
+            </div>
+            <div class="modal-body">
+                <p>Enter admin password to archive this ticket.</p>
+                <input type="password" class="password-input" id="tripArchivePassword" placeholder="Admin password">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('tripArchiveWarning2')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmArchiveAction()">Confirm</button>
+            </div>
+        </div>
+    </div>
 
-        // Close edit dropdowns when clicking outside
-        document.addEventListener('click', function (e) {
-            document.querySelectorAll('details[open]').forEach(d => {
-                if (!d.contains(e.target)) d.removeAttribute('open');
-            });
-        });
+    {{-- ── DELETE WARNING MODALS ─────────────────────────────────────── --}}
+    <div class="modal" id="tripDeleteWarning1">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon" style="color:#dc2626;">warning</span>
+                <h2>Permanently Delete Trip</h2>
+            </div>
+            <div class="modal-body">
+                <p><strong>Trip No:</strong> <span id="deleteTripLabel"></span></p>
+                <p style="color:#dc2626; font-weight:600;">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('tripDeleteWarning1')">Cancel</button>
+                <button type="button" class="btn btn-primary" style="background:#dc2626;"
+                    onclick="proceedToDeletePassword()">Yes, Delete Permanently</button>
+            </div>
+        </div>
+    </div>
 
-        // ── Trip Filter Panel ────────────────────────────────────
-        const tripFilterBtn   = document.getElementById('tripFilterBtn');
-        const tripFilterPanel = document.getElementById('tripFilterPanel');
+    <div class="modal" id="tripDeleteWarning2">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon">lock</span>
+                <h2>Confirm with Password</h2>
+            </div>
+            <div class="modal-body">
+                <p>Enter admin password to permanently delete this ticket.</p>
+                <input type="password" class="password-input" id="tripDeletePassword" placeholder="Admin password">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('tripDeleteWarning2')">Cancel</button>
+                <button type="button" class="btn btn-primary" style="background:#dc2626;"
+                    onclick="confirmDeleteAction()">Delete Permanently</button>
+            </div>
+        </div>
+    </div>
 
-        tripFilterBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            tripFilterPanel.style.display = tripFilterPanel.style.display === 'block' ? 'none' : 'block';
-        });
+    {{-- Hidden forms submitted via JS --}}
+    <form id="archiveTripForm" method="POST" style="display:none;">
+        @csrf
+        <input type="hidden" name="password" id="archiveTripPasswordInput">
+    </form>
+    <form id="deleteTripForm" method="POST" style="display:none;">
+        @csrf
+        <input type="hidden" name="password" id="deleteTripPasswordInput">
+    </form>
 
-        document.addEventListener('click', (e) => {
-            if (!tripFilterPanel.contains(e.target) && e.target !== tripFilterBtn) {
-                tripFilterPanel.style.display = 'none';
-            }
-        });
-
-        document.querySelectorAll('.trip-status-filter').forEach(cb => {
-            cb.addEventListener('change', applyTripFilters);
-        });
-
-        function clearTripFilters() {
-            document.querySelectorAll('.trip-status-filter').forEach(cb => cb.checked = true);
-            applyTripFilters();
-        }
-
-        function applyTripFilters() {
-            const query   = document.getElementById('tripSearch')?.value.trim().toLowerCase() ?? '';
-            const checked = Array.from(document.querySelectorAll('.trip-status-filter:checked'))
-                .map(cb => cb.value);
-
-            document.querySelectorAll('.drivers-table tbody tr').forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (!cells.length) return;
-
-                const truck       = cells[1]?.textContent.toLowerCase() ?? '';
-                const driver      = cells[2]?.textContent.toLowerCase() ?? '';
-                const destination = cells[4]?.textContent.toLowerCase() ?? '';
-
-                const matchesSearch = !query
-                    || truck.includes(query)
-                    || driver.includes(query)
-                    || destination.includes(query);
-
-                const badge  = row.querySelector('.status-badge');
-                const status = Array.from(badge?.classList ?? [])
-                    .find(c => c.startsWith('status-') && c !== 'status-badge')
-                    ?.replace('status-', '') ?? '';
-
-                row.style.display = (matchesSearch && checked.includes(status)) ? '' : 'none';
-            });
-        }
-
-        document.getElementById('tripSearch').addEventListener('input', applyTripFilters);
-    </script>
-@endsection
-=======
     <script src="{{ asset('js/trips.js') }}"></script>
 @endsection
->>>>>>> 2acb994d721b26ccb58fcb8d54e0528b4dc64e62

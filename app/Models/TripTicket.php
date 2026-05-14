@@ -22,6 +22,7 @@ class TripTicket extends Model
         'amount',
         'status',
         'remarks',
+        'is_archived',
     ];
 
     public function driver()

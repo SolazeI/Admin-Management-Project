@@ -49,12 +49,16 @@ Route::middleware('admin')->group(function () {
     Route::post('/trips/{trip}/transition', [TripTicketController::class, 'transition'])->name('trips.transition');
     Route::post('/trips/{trip}', [TripTicketController::class, 'update'])->name('trips.update');
     Route::post('/trips/{trip}/delete', [TripTicketController::class, 'destroy'])->name('trips.destroy');
+    Route::post('/trips/{trip}/archive', [TripTicketController::class, 'archive'])->name('trips.archive');
+    Route::post('/trips/{trip}/unarchive', [TripTicketController::class, 'unarchive'])->name('trips.unarchive');
 
     // Maintenance
     Route::get('/maintenance', [MaintenanceRecordController::class, 'index'])->name('maintenance.index');
     Route::post('/maintenance', [MaintenanceRecordController::class, 'store'])->name('maintenance.store');
     Route::post('/maintenance/{record}/transition', [MaintenanceRecordController::class, 'transition'])->name('maintenance.transition');
     Route::post('/maintenance/{record}', [MaintenanceRecordController::class, 'update'])->name('maintenance.update');
+    Route::post('/maintenance/{record}/archive', [MaintenanceRecordController::class, 'archive'])->name('maintenance.archive');
+    Route::post('/maintenance/{record}/unarchive', [MaintenanceRecordController::class, 'unarchive'])->name('maintenance.unarchive');
     Route::post('/maintenance/{record}/delete', [MaintenanceRecordController::class, 'destroy'])->name('maintenance.destroy');
 
     // Reports

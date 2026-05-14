@@ -16,6 +16,7 @@ class MaintenanceRecord extends Model
         'status',
         'notes',
         'cost',
+        'is_archived',
     ];
 
     public function truck()
