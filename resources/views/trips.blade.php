@@ -51,22 +51,6 @@
         </div>
     </div>
 
-    @if (session('success'))
-        <div class="notice-line" style="border-left-color:#059669; background:#f0fdf4; color:#065f46; margin-bottom:14px;">
-            {{ session('success') }}
-        </div>
-    @endif
-    @if (session('error'))
-        <div class="notice-line" style="border-left-color:#dc2626; background:#fef2f2; color:#991b1b; margin-bottom:14px;">
-            {{ session('error') }}
-        </div>
-    @endif
-    @if (isset($errors) && $errors->any())
-        <div class="notice-line" style="border-left-color:#dc2626; background:#fef2f2; color:#991b1b; margin-bottom:14px;">
-            {{ $errors->first() }}
-        </div>
-    @endif
-
     {{-- ── Tickets Table ─────────────────────────────────────────────── --}}
     <div class="drivers-section">
         <h2 class="section-title">All Trip Tickets</h2>
@@ -86,7 +70,7 @@
                 </thead>
                 <tbody>
                     @forelse ($tripTickets as $trip)
-                        <tr>
+                        <tr data-trip-id="{{ $trip->id }}">
                             <td style="font-weight:700;">{{ $trip->trip_no }}</td>
                             <td>{{ $trip->truck->truck_code ?? '—' }}</td>
                             <td>{{ $trip->driver->full_name ?? '—' }}</td>
@@ -103,44 +87,34 @@
 
                                     {{-- Status transition buttons --}}
                                     @if ($trip->status === 'Draft')
-                                        <form action="{{ url('/trips/'.$trip->id.'/transition') }}" method="POST" style="display:inline;">
-                                            @csrf
-                                            <input type="hidden" name="status" value="In-Transit">
-                                            <button type="submit" class="btn btn-primary" style="padding:5px 11px; font-size:12px; gap:4px;">
-                                                <span class="material-symbols-outlined" style="font-size:14px;">local_shipping</span>
-                                                Dispatch
-                                            </button>
-                                        </form>
-                                        <form action="{{ url('/trips/'.$trip->id.'/transition') }}" method="POST" style="display:inline;"
-                                            onsubmit="return confirm('Cancel this trip ticket?')">
-                                            @csrf
-                                            <input type="hidden" name="status" value="Cancelled">
-                                            <button type="submit" class="btn btn-cancel" style="padding:5px 11px; font-size:12px;">
-                                                Cancel
-                                            </button>
-                                        </form>
+                                        <button type="button" class="btn btn-primary trip-transition-btn"
+                                            style="padding:5px 11px; font-size:12px; gap:4px;"
+                                            data-id="{{ $trip->id }}" data-status="In-Transit">
+                                            <span class="material-symbols-outlined" style="font-size:14px;">local_shipping</span>
+                                            Dispatch
+                                        </button>
+                                        <button type="button" class="btn btn-cancel trip-transition-btn"
+                                            style="padding:5px 11px; font-size:12px;"
+                                            data-id="{{ $trip->id }}" data-status="Cancelled" data-confirm="Cancel this trip ticket?">
+                                            Cancel
+                                        </button>
                                     @elseif ($trip->status === 'In-Transit')
-                                        <form action="{{ url('/trips/'.$trip->id.'/transition') }}" method="POST" style="display:inline;">
-                                            @csrf
-                                            <input type="hidden" name="status" value="Completed">
-                                            <button type="submit" class="btn btn-primary" style="padding:5px 11px; font-size:12px; gap:4px; background:#059669;">
-                                                <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>
-                                                Complete
-                                            </button>
-                                        </form>
-                                        <form action="{{ url('/trips/'.$trip->id.'/transition') }}" method="POST" style="display:inline;"
-                                            onsubmit="return confirm('Cancel this trip ticket?')">
-                                            @csrf
-                                            <input type="hidden" name="status" value="Cancelled">
-                                            <button type="submit" class="btn btn-cancel" style="padding:5px 11px; font-size:12px;">
-                                                Cancel
-                                            </button>
-                                        </form>
+                                        <button type="button" class="btn btn-primary trip-transition-btn"
+                                            style="padding:5px 11px; font-size:12px; gap:4px; background:#059669;"
+                                            data-id="{{ $trip->id }}" data-status="Completed">
+                                            <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>
+                                            Complete
+                                        </button>
+                                        <button type="button" class="btn btn-cancel trip-transition-btn"
+                                            style="padding:5px 11px; font-size:12px;"
+                                            data-id="{{ $trip->id }}" data-status="Cancelled" data-confirm="Cancel this trip ticket?">
+                                            Cancel
+                                        </button>
                                     @endif
 
-                                    {{-- Edit details (non-status fields) --}}
+                                    {{-- Edit panel --}}
                                     @if (!in_array($trip->status, ['Completed', 'Cancelled']))
-                                        <details style="display:inline-block;">
+                                        <details class="trip-edit-details" style="display:inline-block;">
                                             <summary class="btn btn-secondary" style="display:inline-flex; cursor:pointer; padding:5px 11px; font-size:12px; gap:4px;">
                                                 <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                                                 Edit
@@ -150,7 +124,7 @@
                                                 background:#fff; border:1px solid #e2e8f0; border-radius:10px;
                                                 box-shadow:0 8px 24px rgba(0,0,0,.12); padding:16px;
                                                 min-width:560px; z-index:300;">
-                                                <form action="{{ url('/trips/'.$trip->id) }}" method="POST"
+                                                <form class="trip-edit-form" data-id="{{ $trip->id }}"
                                                     style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                                                     @csrf
                                                     <div>
@@ -195,11 +169,13 @@
                                                     </div>
                                                     <div>
                                                         <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Departure Time</label>
-                                                        <input type="datetime-local" name="departure_time" class="search-input" style="width:100%;" value="{{ $trip->departure_time ? \Illuminate\Support\Carbon::parse($trip->departure_time)->format('Y-m-d\TH:i') : '' }}">
+                                                        <input type="datetime-local" name="departure_time" class="search-input" style="width:100%;"
+                                                            value="{{ $trip->departure_time ? \Illuminate\Support\Carbon::parse($trip->departure_time)->format('Y-m-d\TH:i') : '' }}">
                                                     </div>
                                                     <div>
                                                         <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Arrival Time</label>
-                                                        <input type="datetime-local" name="arrival_time" class="search-input" style="width:100%;" value="{{ $trip->arrival_time ? \Illuminate\Support\Carbon::parse($trip->arrival_time)->format('Y-m-d\TH:i') : '' }}">
+                                                        <input type="datetime-local" name="arrival_time" class="search-input" style="width:100%;"
+                                                            value="{{ $trip->arrival_time ? \Illuminate\Support\Carbon::parse($trip->arrival_time)->format('Y-m-d\TH:i') : '' }}">
                                                     </div>
                                                     <div>
                                                         <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Distance (km)</label>
@@ -214,11 +190,25 @@
                                                         <textarea name="remarks" class="search-input"
                                                             style="width:100%; height:60px; resize:none;">{{ $trip->remarks }}</textarea>
                                                     </div>
+
+                                                    {{-- Inline Error Box --}}
+                                                    <div class="trip-form-error" style="
+                                                        display:none; grid-column: 1 / -1;
+                                                        padding:12px 14px; background:#fef2f2;
+                                                        border:1px solid #fca5a5; border-radius:8px;">
+                                                        <div style="display:flex; align-items:flex-start; gap:8px;">
+                                                            <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
+                                                            <ul class="trip-form-error-list" style="
+                                                                margin:0; padding:0; list-style:none;
+                                                                font-size:13px; color:#dc2626; line-height:1.6;"></ul>
+                                                        </div>
+                                                    </div>
+
                                                     <div style="grid-column: 1 / -1; display:flex; gap:8px; justify-content:flex-end; padding-top:4px;">
-                                                        <button class="btn btn-primary" type="submit" style="font-size:12px; padding:6px 14px;">Save Changes</button>
+                                                        <button class="btn btn-primary trip-edit-save-btn" type="submit" style="font-size:12px; padding:6px 14px;">Save Changes</button>
                                                     </div>
                                                 </form>
-                                                {{-- Archive replaces Delete --}}
+
                                                 <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9;">
                                                     <button type="button" class="btn btn-secondary" style="font-size:12px; gap:4px;"
                                                         onclick="confirmArchiveTrip({{ $trip->id }}, '{{ addslashes($trip->trip_no) }}')">
@@ -229,7 +219,6 @@
                                             </div>
                                         </details>
                                     @else
-                                        {{-- Completed / Cancelled: archive only --}}
                                         <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
                                             onclick="confirmArchiveTrip({{ $trip->id }}, '{{ addslashes($trip->trip_no) }}')">
                                             <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
@@ -256,7 +245,7 @@
                 <h2>Trip Ticket Entry</h2>
             </div>
             <div class="modal-body" style="padding:0;">
-                <form action="{{ url('/trips') }}" method="POST">
+                <form id="addTripForm">
                     @csrf
                     <div class="trip-entry-header">Weekly / Monthly Trip Ticket Entry</div>
                     <div class="trip-entry-subtitle">New tickets start as Draft — use the Dispatch button to put them In-Transit</div>
@@ -312,7 +301,7 @@
                             <input type="datetime-local" name="arrival_time" class="search-input" style="width:100%;">
                         </div>
                         <div style="display:flex; align-items:flex-end;">
-                            <button class="btn btn-primary trip-save-btn" type="submit" style="width:100%; justify-content:center;">
+                            <button class="btn btn-primary" type="submit" style="width:100%; justify-content:center;">
                                 <span class="material-symbols-outlined">save</span>
                                 Save as Draft
                             </button>
@@ -320,6 +309,19 @@
                         <div style="grid-column: 1 / -1;">
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Remarks</label>
                             <textarea name="remarks" class="search-input trip-remarks" style="width:100%;" placeholder="Remarks..."></textarea>
+                        </div>
+
+                        {{-- Add Error Box --}}
+                        <div id="addTripError" style="
+                            display:none; grid-column: 1 / -1;
+                            padding:12px 14px; background:#fef2f2;
+                            border:1px solid #fca5a5; border-radius:8px;">
+                            <div style="display:flex; align-items:flex-start; gap:8px;">
+                                <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
+                                <ul id="addTripErrorList" style="
+                                    margin:0; padding:0; list-style:none;
+                                    font-size:13px; color:#dc2626; line-height:1.6;"></ul>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -369,15 +371,12 @@
                                     </td>
                                     <td>
                                         <div style="display:flex; gap:6px; align-items:center;">
-                                            {{-- Restore: simple POST, no password --}}
-                                            <form action="{{ url('/trips/'.$archived->id.'/unarchive') }}" method="POST" style="display:inline;">
-                                                @csrf
-                                                <button type="submit" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;">
-                                                    <span class="material-symbols-outlined" style="font-size:14px;">restore</span>
-                                                    Restore
-                                                </button>
-                                            </form>
-                                            {{-- Visual separator + safe spacing before destructive action --}}
+                                            <button type="button" class="btn btn-secondary trip-unarchive-btn"
+                                                style="font-size:12px; padding:5px 11px; gap:4px;"
+                                                data-id="{{ $archived->id }}">
+                                                <span class="material-symbols-outlined" style="font-size:14px;">restore</span>
+                                                Restore
+                                            </button>
                                             <span style="display:inline-block; width:1px; height:22px; background:#e2e8f0; margin:0 4px;"></span>
                                             <button type="button"
                                                 style="
@@ -433,6 +432,13 @@
             <div class="modal-body">
                 <p>Enter admin password to archive this ticket.</p>
                 <input type="password" class="password-input" id="tripArchivePassword" placeholder="Admin password">
+                <p id="tripArchivePasswordError" style="
+                    display:none; margin-top:8px; font-size:13px; color:#dc2626;">
+                    <span style="display:flex; align-items:center; gap:6px;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">error</span>
+                        <span id="tripArchivePasswordErrorText"></span>
+                    </span>
+                </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-cancel" onclick="closeModal('tripArchiveWarning2')">Cancel</button>
@@ -469,6 +475,13 @@
             <div class="modal-body">
                 <p>Enter admin password to permanently delete this ticket.</p>
                 <input type="password" class="password-input" id="tripDeletePassword" placeholder="Admin password">
+                <p id="tripDeletePasswordError" style="
+                    display:none; margin-top:8px; font-size:13px; color:#dc2626;">
+                    <span style="display:flex; align-items:center; gap:6px;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">error</span>
+                        <span id="tripDeletePasswordErrorText"></span>
+                    </span>
+                </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-cancel" onclick="closeModal('tripDeleteWarning2')">Cancel</button>
@@ -477,16 +490,6 @@
             </div>
         </div>
     </div>
-
-    {{-- Hidden forms submitted via JS --}}
-    <form id="archiveTripForm" method="POST" style="display:none;">
-        @csrf
-        <input type="hidden" name="password" id="archiveTripPasswordInput">
-    </form>
-    <form id="deleteTripForm" method="POST" style="display:none;">
-        @csrf
-        <input type="hidden" name="password" id="deleteTripPasswordInput">
-    </form>
 
     <script src="{{ asset('js/trips.js') }}"></script>
 @endsection

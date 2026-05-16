@@ -154,6 +154,18 @@
                             <p>Click to upload file</p>
                         </div>
                     </div>
+
+                    {{-- Error Box --}}
+                    <div id="addDriverError" style="
+                        display:none; margin-top:14px; padding:12px 14px;
+                        background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
+                        <div style="display:flex; align-items:flex-start; gap:8px;">
+                            <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
+                            <ul id="addDriverErrorList" style="
+                                margin:0; padding:0; list-style:none;
+                                font-size:13px; color:#dc2626; line-height:1.6;"></ul>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-cancel" onclick="closeModal('addDriverModal')">Cancel</button>
@@ -274,6 +286,18 @@
                             <p>Click to upload new file (optional)</p>
                         </div>
                     </div>
+
+                    {{-- Error Box --}}
+                    <div id="editDriverError" style="
+                        display:none; margin-top:14px; padding:12px 14px;
+                        background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
+                        <div style="display:flex; align-items:flex-start; gap:8px;">
+                            <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
+                            <ul id="editDriverErrorList" style="
+                                margin:0; padding:0; list-style:none;
+                                font-size:13px; color:#dc2626; line-height:1.6;"></ul>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-cancel" onclick="closeModal('editDriverModal')">Cancel</button>
@@ -343,6 +367,12 @@
             <div class="modal-body">
                 <p>Enter admin password to confirm.</p>
                 <input type="password" class="password-input" id="adminPassword" placeholder="Admin password">
+                <p id="archivePasswordError" style="
+                    display:none; margin-top:8px; font-size:13px; color:#dc2626;
+                    display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;">error</span>
+                    <span id="archivePasswordErrorText"></span>
+                </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-cancel" onclick="closeModal('warningModal2')">Cancel</button>
@@ -378,6 +408,12 @@
             <div class="modal-body">
                 <p>Enter admin password to confirm.</p>
                 <input type="password" class="password-input" id="adminPasswordUnarchive" placeholder="Admin password">
+                <p id="unarchivePasswordError" style="
+                    display:none; margin-top:8px; font-size:13px; color:#dc2626;
+                    display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;">error</span>
+                    <span id="unarchivePasswordErrorText"></span>
+                </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-cancel" onclick="closeModal('warningModal4')">Cancel</button>

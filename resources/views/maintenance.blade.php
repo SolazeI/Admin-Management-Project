@@ -150,7 +150,8 @@
                                                 background:#fff; border:1px solid #e2e8f0; border-radius:10px;
                                                 box-shadow:0 8px 24px rgba(0,0,0,.12); padding:16px;
                                                 min-width:500px; z-index:300;">
-                                                <form action="{{ url('/maintenance/'.$rec->id) }}" method="POST"
+                                                <form class="editMaintenanceForm"
+                                                    action="{{ url('/maintenance/'.$rec->id) }}" method="POST"
                                                     style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                                                     @csrf
                                                     <div>
@@ -178,6 +179,18 @@
                                                     <div>
                                                         <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Cost</label>
                                                         <input name="cost" class="search-input" style="width:100%;" value="{{ $rec->cost }}" placeholder="Cost (optional)">
+                                                    </div>
+                                                    {{-- Edit inline error box --}}
+                                                    <div class="editMaintError" style="
+                                                        display:none; grid-column: 1 / -1;
+                                                        padding:10px 12px; background:#fef2f2;
+                                                        border:1px solid #fca5a5; border-radius:8px;">
+                                                        <div style="display:flex; align-items:flex-start; gap:8px;">
+                                                            <span class="material-symbols-outlined" style="color:#dc2626; font-size:16px; margin-top:1px; flex-shrink:0;">error</span>
+                                                            <ul class="editMaintErrorList" style="
+                                                                margin:0; padding:0; list-style:none;
+                                                                font-size:12px; color:#dc2626; line-height:1.6;"></ul>
+                                                        </div>
                                                     </div>
                                                     <div style="grid-column: 1 / -1; display:flex; gap:8px; justify-content:flex-end; padding-top:4px;">
                                                         <button class="btn btn-primary" type="submit" style="font-size:12px; padding:6px 14px;">Save Changes</button>
@@ -220,7 +233,7 @@
                 <span class="material-symbols-outlined">build</span>
                 <h2>Add Maintenance Record</h2>
             </div>
-            <form action="{{ url('/maintenance') }}" method="POST">
+            <form id="addMaintenanceForm" action="{{ url('/maintenance') }}" method="POST">
                 @csrf
                 <div class="modal-body">
                     <p style="font-size:12px; color:#64748b; margin-bottom:14px; background:#f8fafc; border-radius:7px; padding:8px 12px; border:1px solid #e2e8f0;">
@@ -254,6 +267,18 @@
                         <div class="form-group">
                             <label>Notes</label>
                             <input type="text" name="notes" placeholder="Notes (optional)">
+                        </div>
+                    </div>
+
+                    {{-- Error Box --}}
+                    <div id="addMaintError" style="
+                        display:none; margin-top:14px; padding:12px 14px;
+                        background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
+                        <div style="display:flex; align-items:flex-start; gap:8px;">
+                            <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
+                            <ul id="addMaintErrorList" style="
+                                margin:0; padding:0; list-style:none;
+                                font-size:13px; color:#dc2626; line-height:1.6;"></ul>
                         </div>
                     </div>
                 </div>
@@ -367,6 +392,13 @@
             <div class="modal-body">
                 <p>Enter admin password to archive this record.</p>
                 <input type="password" class="password-input" id="maintArchivePassword" placeholder="Admin password">
+                {{-- Password error --}}
+                <p id="maintArchivePasswordError" style="
+                    display:none; margin-top:8px; font-size:13px; color:#dc2626;
+                    align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;">error</span>
+                    <span id="maintArchivePasswordErrorText"></span>
+                </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-cancel" onclick="closeModal('maintArchiveWarning2')">Cancel</button>
@@ -403,6 +435,13 @@
             <div class="modal-body">
                 <p>Enter admin password to permanently delete this record.</p>
                 <input type="password" class="password-input" id="maintDeletePassword" placeholder="Admin password">
+                {{-- Password error --}}
+                <p id="maintDeletePasswordError" style="
+                    display:none; margin-top:8px; font-size:13px; color:#dc2626;
+                    align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;">error</span>
+                    <span id="maintDeletePasswordErrorText"></span>
+                </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-cancel" onclick="closeModal('maintDeleteWarning2')">Cancel</button>
@@ -411,16 +450,6 @@
             </div>
         </div>
     </div>
-
-    {{-- Hidden forms submitted via JS --}}
-    <form id="archiveMaintForm" method="POST" style="display:none;">
-        @csrf
-        <input type="hidden" name="password" id="archiveMaintPasswordInput">
-    </form>
-    <form id="deleteMaintForm" method="POST" style="display:none;">
-        @csrf
-        <input type="hidden" name="password" id="deleteMaintPasswordInput">
-    </form>
 
     <script src="{{ asset('js/maintenance.js') }}"></script>
 @endsection
