@@ -89,6 +89,17 @@ function clearPasswordError(errorId) {
 let _archiveMaintId = null;
 let _deleteMaintId  = null;
 
+function openEditMaint(id, truckId, startDate, issue, notes, cost) {
+    document.getElementById('editMaintId').value        = id;
+    document.getElementById('editMaintTruckId').value   = truckId;
+    document.getElementById('editMaintStartDate').value = startDate;
+    document.getElementById('editMaintIssue').value     = issue;
+    document.getElementById('editMaintNotes').value     = notes;
+    document.getElementById('editMaintCost').value      = cost;
+    clearFormError('editMaintError');
+    openModal('editMaintenanceModal');
+}
+
 // ── Init ──────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -96,6 +107,49 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function initializeEventListeners() {
+
+    document.getElementById('editMaintenanceForm')?.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        clearFormError('editMaintError');
+
+        const id      = document.getElementById('editMaintId').value;
+        const payload = {
+            truck_id:          document.getElementById('editMaintTruckId').value,
+            start_date:        document.getElementById('editMaintStartDate').value,
+            issue_description: document.getElementById('editMaintIssue').value,
+            notes:             document.getElementById('editMaintNotes').value,
+            cost:              document.getElementById('editMaintCost').value,
+        };
+
+        const btn = this.querySelector('[type="submit"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+        try {
+            const response = await fetch(`/maintenance/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept':       'application/json',
+                    'X-CSRF-TOKEN': getCsrf(),
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.ok) {
+                closeModal('editMaintenanceModal');
+                location.reload();
+            } else {
+                const data = await response.json().catch(() => null);
+                showFormError('editMaintError', 'editMaintErrorList',
+                    data?.errors ? Object.values(data.errors).flat() : [data?.message || 'Something went wrong.']
+                );
+            }
+        } catch (err) {
+            showFormError('editMaintError', 'editMaintErrorList', ['Unable to connect. Please try again.']);
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+        }
+    });
 
     // Add modal
     const addMaintenanceBtn = document.getElementById('addMaintenanceBtn');
@@ -117,17 +171,6 @@ function initializeEventListeners() {
     if (addMaintenanceForm) {
         addMaintenanceForm.addEventListener('submit', handleAddMaintenance);
     }
-
-    // Edit forms submit
-    document.querySelectorAll('.editMaintenanceForm').forEach(form => {
-        const details = form.closest('details');
-        if (details) {
-            details.addEventListener('toggle', () => {
-                if (details.open) clearInlineError(form);
-            });
-        }
-        form.addEventListener('submit', handleEditMaintenance);
-    });
 
     // ── Transition forms (Start / Complete / Cancel) ──────
     document.querySelectorAll('form[action*="/transition"]').forEach(form => {
@@ -230,7 +273,10 @@ function initializeEventListeners() {
     // Close modals on backdrop click
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', function (e) {
-            if (e.target === this) closeModal(this.id);
+            const noBackdropClose = ['editTripModal', 'addTripModal', 'editMaintenanceModal', 'addMaintenanceModal'];
+            if (e.target === this && !noBackdropClose.includes(this.id)) {
+                closeModal(this.id);
+            }
         });
     });
 
@@ -267,6 +313,9 @@ function closeModal(modalId) {
         } else if (modalId === 'maintDeleteWarning2') {
             document.getElementById('maintDeletePassword').value = '';
             clearPasswordError('maintDeletePasswordError');
+        } else if (modalId === 'editMaintenanceModal') {
+            document.getElementById('editMaintenanceForm').reset();
+            clearFormError('editMaintError');
         }
     }
 }

@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\AdminSetting;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    use LogsActivity;
+
     private const ADMIN_PASSWORD_KEY = 'admin_password_hash';
 
     public function authenticate(Request $request)
@@ -22,17 +25,22 @@ class AuthController extends Controller
         }
 
         if (!Hash::check($validated['password'], $hash)) {
+            $this->writeLog('login_failed', 'admin', null, 'admin', null, null, 'Incorrect password', $request);
             return back()->with('error', 'Incorrect password');
         }
 
         $request->session()->regenerate();
         $request->session()->put('is_admin', true);
 
+        $this->writeLog('login', 'admin', null, 'admin', null, null, null, $request);
+
         return redirect()->route('admin.dashboard');
     }
 
     public function logout(Request $request)
     {
+        $this->writeLog('logout', 'admin', null, 'admin', null, null, null, $request);
+
         $request->session()->forget('is_admin');
         $request->session()->invalidate();
         $request->session()->regenerateToken();
@@ -49,7 +57,7 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'current_password' => 'required|string',
-            'new_password' => 'required|string|min:12|confirmed',
+            'new_password'     => 'required|string|min:12|confirmed',
         ]);
 
         $currentHash = $this->getAdminPasswordHash();
@@ -62,7 +70,8 @@ class AuthController extends Controller
             ['value' => Hash::make($validated['new_password'])]
         );
 
-        // Force re-authentication: invalidate session after password change.
+        $this->writeLog('password_changed', 'admin_settings', null, 'admin_password_hash', null, null, null, $request);
+
         $request->session()->forget('is_admin');
         $request->session()->invalidate();
         $request->session()->regenerateToken();

@@ -43,6 +43,12 @@
                     <span>Reports</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ url('/logs') }}" class="nav-link {{ ($active ?? '') === 'logs' ? 'active' : '' }}">
+                    <span class="material-symbols-outlined">history</span>
+                    <span>Logs</span>
+                </a>
+            </li>
             <li style="margin-top:10px;">
                 <a href="{{ url('/admin/password') }}" class="nav-link {{ ($active ?? '') === 'password' ? 'active' : '' }}">
                     <span class="material-symbols-outlined">lock</span>

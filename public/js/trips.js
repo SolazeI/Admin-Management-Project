@@ -96,13 +96,20 @@ function closeModal(id) {
     if (id === 'tripDeleteWarning2') {
         clearPasswordError('tripDeletePasswordError');
         document.getElementById('tripDeletePassword').value = '';
+    } 
+    if (id === 'editTripModal') {
+        document.getElementById('editTripForm').reset();
+        clearFormError('editTripError');
     }
 }
 
 // Close modals on backdrop click
 document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', function (e) {
-        if (e.target === this) closeModal(this.id);
+        const noBackdropClose = ['editTripModal', 'addTripModal', 'editMaintenanceModal', 'addMaintenanceModal'];
+        if (e.target === this && !noBackdropClose.includes(this.id)) {
+            closeModal(this.id);
+        }
     });
 });
 
@@ -176,59 +183,74 @@ document.getElementById('addTripForm').addEventListener('submit', async function
 
 // ── Edit Trip Forms ───────────────────────────────────────
 
-document.querySelectorAll('.trip-edit-form').forEach(form => {
-    // Clear inline error when the details panel is opened
-    const details = form.closest('details');
-    if (details) {
-        details.addEventListener('toggle', () => {
-            if (details.open) clearInlineError(form);
+function openEditTrip(id) {
+    const row = document.querySelector(`tr[data-trip-id="${id}"]`);
+    if (!row) return;
+
+    document.getElementById('editTripId').value          = id;
+    document.getElementById('editTripNo').value          = row.dataset.tripNo;
+    document.getElementById('editTripDateIssued').value  = row.dataset.dateIssued;
+    document.getElementById('editTripTruckId').value     = row.dataset.truckId;
+    document.getElementById('editTripDriverId').value    = row.dataset.driverId;
+    document.getElementById('editTripOrigin').value      = row.dataset.origin;
+    document.getElementById('editTripDestination').value = row.dataset.destination;
+    document.getElementById('editTripDeparture').value   = row.dataset.departure;
+    document.getElementById('editTripArrival').value     = row.dataset.arrival;
+    document.getElementById('editTripDistance').value    = row.dataset.distance;
+    document.getElementById('editTripAmount').value      = row.dataset.amount;
+    document.getElementById('editTripRemarks').value     = row.dataset.remarks;
+
+    clearFormError('editTripError');
+    openModal('editTripModal');
+}
+
+document.getElementById('editTripForm')?.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    clearFormError('editTripError');
+
+    const id      = document.getElementById('editTripId').value;
+    const payload = {
+        trip_no:        document.getElementById('editTripNo').value,
+        date_issued:    document.getElementById('editTripDateIssued').value,
+        truck_id:       document.getElementById('editTripTruckId').value,
+        driver_id:      document.getElementById('editTripDriverId').value,
+        origin:         document.getElementById('editTripOrigin').value,
+        destination:    document.getElementById('editTripDestination').value,
+        departure_time: document.getElementById('editTripDeparture').value,
+        arrival_time:   document.getElementById('editTripArrival').value,
+        distance_km:    document.getElementById('editTripDistance').value,
+        amount:         document.getElementById('editTripAmount').value,
+        remarks:        document.getElementById('editTripRemarks').value,
+    };
+
+    const btn = this.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    try {
+        const response = await fetch(`/trips/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept':       'application/json',
+                'X-CSRF-TOKEN': getCsrf(),
+            },
+            body: JSON.stringify(payload),
         });
-    }
 
-    form.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        clearInlineError(this);
-
-        const tripId   = this.dataset.id;
-        const formData = new FormData(this);
-        const payload  = Object.fromEntries(formData.entries());
-        delete payload._token;
-
-        const btn = this.querySelector('.trip-edit-save-btn');
-        if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-
-        try {
-            const response = await fetch(`/trips/${tripId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept':       'application/json',
-                    'X-CSRF-TOKEN': getCsrf(),
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (response.ok) {
-                location.reload();
-            } else {
-                const data = await response.json().catch(() => null);
-                if (data?.errors) {
-                    showInlineError(this, data.errors);
-                } else {
-                    showInlineError(this, [
-                        data?.message || 'Something went wrong. Please try again.',
-                    ]);
-                }
-            }
-        } catch (error) {
-            console.error('Error updating trip:', error);
-            showInlineError(this, [
-                'Unable to connect to the server. Please check your connection and try again.',
-            ]);
-        } finally {
-            if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+        if (response.ok) {
+            closeModal('editTripModal');
+            location.reload();
+        } else {
+            const data = await response.json().catch(() => null);
+            showFormError('editTripError', 'editTripErrorList',
+                data?.errors ? Object.values(data.errors).flat() : [data?.message || 'Something went wrong.']
+            );
         }
-    });
+    } catch (err) {
+        showFormError('editTripError', 'editTripErrorList', ['Unable to connect. Please try again.']);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+    }
 });
 
 // ── Status Transitions ────────────────────────────────────

@@ -1,10 +1,8 @@
 @extends('layouts.app')
-
 @php
     $active = 'reports';
     $title  = 'Reports';
 @endphp
-
 @section('content')
     <div class="content-header app-divider">
         <div class="header-text">
@@ -26,7 +24,6 @@
                     background:#fff; border:1px solid #e2e8f0; border-radius:10px;
                     box-shadow:0 8px 24px rgba(0,0,0,.12); padding:14px 16px;
                     min-width:180px; z-index:500;">
-                    {{-- Driver statuses --}}
                     <div id="driverFilterOptions">
                         @foreach (['Available','On-Leave','Covering','Inactive'] as $st)
                             <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#1e293b; cursor:pointer; padding:4px 0;">
@@ -36,8 +33,6 @@
                             </label>
                         @endforeach
                     </div>
-
-                    {{-- Maintenance statuses --}}
                     <div id="maintFilterOptions" style="display:none;">
                         @foreach (['Pending','In-Progress','Completed','Cancelled'] as $st)
                             <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#1e293b; cursor:pointer; padding:4px 0;">
@@ -47,7 +42,6 @@
                             </label>
                         @endforeach
                     </div>
-
                     <button onclick="clearReportFilters()" style="
                         margin-top:10px; width:100%; padding:6px; border-radius:6px;
                         border:1px solid #e2e8f0; background:#f8fafc; font-size:12px;
@@ -73,8 +67,8 @@
             <div class="metric-value metric-green">₱{{ number_format($totalRevenue, 0) }}</div>
         </div>
         <div class="metric-card">
-            <div class="metric-label">Driver Expenses</div>
-            <div class="metric-value metric-blue">₱{{ number_format($driverExpenses, 0) }}</div>
+            <div class="metric-label">Completed Trips</div>
+            <div class="metric-value metric-blue">{{ number_format($completedTripCount, 0) }}</div>
         </div>
         <div class="metric-card">
             <div class="metric-label">Maintenance Cost</div>
@@ -106,10 +100,10 @@
                 <thead>
                     <tr>
                         <th>Driver</th>
+                        <th>Status</th>
                         <th>Latest Truck</th>
                         <th>Total Trips</th>
-                        <th>Expenses</th>
-                        <th>Hauling</th>
+                        <th>Revenue</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -117,13 +111,22 @@
                     @forelse ($driverTripRecords as $driver)
                         <tr>
                             <td>{{ $driver->full_name }}</td>
-                            <td>—</td>
-                            <td>{{ $driver->total_trips_count }}</td>
-                            <td class="metric-red">₱0</td>
-                            <td class="metric-blue">₱0</td>
                             <td>
-                                <button class="action-btn">
-                                    <span class="material-symbols-outlined">more_vert</span>
+                                <span class="status-badge status-{{ strtolower(str_replace(['-',' '], '', $driver->status ?? 'inactive')) }}">
+                                    {{ $driver->status ?? 'Inactive' }}
+                                </span>
+                            </td>
+                            <td>{{ $driver->assigned_truck ?? '—' }}</td>
+                            <td>{{ $driver->total_trips_count }}</td>
+                            <td>{{ ($driver->total_revenue ?? 0) > 0 ? '₱' . number_format($driver->total_revenue, 0) : '—' }}</td>
+                            <td>
+                                <button type="button"
+                                    onclick="window.open('{{ route('reports.export.driver', $driver->id) }}', '_blank')"
+                                    style="font-size:12px; gap:4px; display:inline-flex; align-items:center; padding:6px 12px;
+                                        background:#0f1a2e; color:#fff; border-radius:6px; border:none;
+                                        font-family:'Poppins',sans-serif; font-weight:500; cursor:pointer;">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">picture_as_pdf</span>
+                                    Export Report
                                 </button>
                             </td>
                         </tr>
@@ -137,7 +140,17 @@
 
     {{-- Maintenance Records Section --}}
     <div id="maintenanceRecordsSection" class="drivers-section" style="display:none;">
-        <h2 class="section-title">Maintenance Records ({{ $maintenanceRecords->count() }})</h2>
+        <h2 class="section-title" style="display:flex; align-items:center; justify-content:space-between;">
+            Maintenance Records ({{ $maintenanceRecords->count() }})
+            <a id="maintenanceExportBtn"
+            href="{{ route('reports.export.maintenance') }}"
+            target="_blank"
+            class="btn btn-secondary"
+            style="font-size:12px; display:inline-flex; align-items:center; gap:6px; padding:6px 14px;">
+                <span class="material-symbols-outlined" style="font-size:16px;">picture_as_pdf</span>
+                Export Report
+            </a>
+        </h2>
         <div class="table-container">
             <table class="drivers-table">
                 <thead>
@@ -171,5 +184,78 @@
             </table>
         </div>
     </div>
+
+    <script>
+        window.exportDriverBase      = "{{ route('reports.export.driver', '') }}";
+        window.exportMaintenanceBase = "{{ route('reports.export.maintenance') }}";
+    </script>
     <script src="{{ asset('js/reports.js') }}"></script>
+
+    <div id="printContainer" style="display:none;"></div>
+    <style>
+        @media print {
+            body > *:not(#printContainer) { display: none !important; }
+            #printContainer { display: block !important; }
+            @page { margin: 24mm 20mm; size: A4; }
+            body { background: #fff; }
+            .print-report {
+                font-family: 'Poppins', sans-serif;
+                color: #1e293b;
+                max-width: 680px;
+                margin: 0 auto;
+            }
+            .print-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                border-bottom: 2px solid #0f1a2e;
+                padding-bottom: 10px;
+                margin-bottom: 20px;
+            }
+            .print-logo {
+                font-size: 18px;
+                font-weight: 700;
+                color: #0f1a2e;
+                letter-spacing: .5px;
+            }
+            .print-meta {
+                font-size: 11px;
+                color: #64748b;
+            }
+            .print-title {
+                font-size: 15px;
+                font-weight: 600;
+                color: #0f1a2e;
+                margin-bottom: 16px;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+            }
+            .print-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .print-table tr:nth-child(even) { background: #f8fafc; }
+            .print-table td {
+                padding: 9px 12px;
+                font-size: 12px;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .print-table td.label {
+                width: 38%;
+                font-weight: 600;
+                color: #475569;
+            }
+            .print-table td.value {
+                color: #1e293b;
+            }
+            .print-footer {
+                margin-top: 32px;
+                font-size: 10px;
+                color: #94a3b8;
+                text-align: center;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 10px;
+            }
+        }
+    </style>
 @endsection

@@ -1,63 +1,44 @@
 <?php
-
 namespace App\Http\Controllers;
 
+use App\Models\AdminSetting;
 use App\Models\Driver;
 use App\Models\TripTicket;
 use App\Models\Truck;
-use Illuminate\Support\Carbon;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use App\Models\AdminSetting;
 use Illuminate\Support\Str;
 
 class TripTicketController extends Controller
 {
+    use LogsActivity;
+
     private const ADMIN_PASSWORD_KEY = 'admin_password_hash';
 
     public function index()
     {
         try {
-            $drivers = Driver::where('is_archived', false)
-                ->where('status', 'Available')
-                ->orderBy('full_name')
-                ->get();
-
-            $trucks = Truck::where('status', 'Available')
-                ->orderBy('truck_code')
-                ->get();
-
-            $allDrivers = Driver::where('is_archived', false)
-                ->orderBy('full_name')
-                ->get();
-
-            $allTrucks = Truck::orderBy('truck_code')->get();
-
+            $drivers = Driver::where('is_archived', false)->where('status', 'Available')->orderBy('full_name')->get();
+            $trucks  = Truck::where('status', 'Available')->orderBy('truck_code')->get();
+            $allDrivers = Driver::where('is_archived', false)->orderBy('full_name')->get();
+            $allTrucks  = Truck::orderBy('truck_code')->get();
             $tripTickets = TripTicket::with(['driver', 'truck'])
                 ->where('is_archived', false)
                 ->orderByDesc('created_at')
                 ->limit(50)
                 ->get();
-
             $archivedTripTickets = TripTicket::with(['driver', 'truck'])
                 ->where('is_archived', true)
                 ->orderByDesc('created_at')
                 ->limit(50)
                 ->get();
-
-            return view('trips', compact(
-                'drivers', 'trucks', 'allDrivers', 'allTrucks',
-                'tripTickets', 'archivedTripTickets'
-            ));
+            return view('trips', compact('drivers', 'trucks', 'allDrivers', 'allTrucks', 'tripTickets', 'archivedTripTickets'));
         } catch (\Exception $e) {
-            Log::error('Failed to load trip tickets', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            return response()->json([
-                'message' => 'Unable to load trip tickets. Please try again.',
-            ], 500);
+            Log::error('Failed to load trip tickets', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Unable to load trip tickets. Please try again.'], 500);
         }
     }
 
@@ -80,21 +61,15 @@ class TripTicketController extends Controller
 
             $truck = Truck::find($validated['truck_id']);
             if ($truck && $truck->status !== 'Available') {
-                return response()->json([
-                    'message' => 'This truck is not available (' . $truck->status . ').',
-                    'errors'  => ['truck_id' => ['This truck is not available (' . $truck->status . ').' ]],
-                ], 422);
+                return response()->json(['message' => 'This truck is not available (' . $truck->status . ').', 'errors' => ['truck_id' => ['This truck is not available (' . $truck->status . ').']]], 422);
             }
 
             $driver = Driver::find($validated['driver_id']);
             if ($driver && $driver->status !== 'Available') {
-                return response()->json([
-                    'message' => 'This driver is not available (' . $driver->status . ').',
-                    'errors'  => ['driver_id' => ['This driver is not available (' . $driver->status . ').']],
-                ], 422);
+                return response()->json(['message' => 'This driver is not available (' . $driver->status . ').', 'errors' => ['driver_id' => ['This driver is not available (' . $driver->status . ').']]], 422);
             }
 
-            $validated = $this->normalizeDateTimes($validated);
+            $validated           = $this->normalizeDateTimes($validated);
             $validated['status'] = 'Draft';
 
             if (empty($validated['trip_no'])) {
@@ -102,30 +77,25 @@ class TripTicketController extends Controller
             }
 
             $trip = TripTicket::create($validated);
+            $trip->load('driver');
             $this->syncStatusesAfterTripChange($trip);
+
+            $this->writeLog('created', 'trip_ticket', $trip->id, $this->tripLabel($trip), null, $this->modelSnapshot($trip), null, $request);
 
             return response()->json($trip->load(['driver', 'truck']), 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Please check your inputs and try again.',
-                'errors'  => $e->errors(),
-            ], 422);
+            return response()->json(['message' => 'Please check your inputs and try again.', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            Log::error('Failed to create trip ticket', [
-                'input' => $request->all(),
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            return response()->json([
-                'message' => 'Something went wrong while saving the trip ticket. Please try again.',
-            ], 500);
+            Log::error('Failed to create trip ticket', ['input' => $request->all(), 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Something went wrong while saving the trip ticket. Please try again.'], 500);
         }
     }
 
     public function update(Request $request, $id)
     {
         try {
-            $trip = TripTicket::findOrFail($id);
+            $trip        = TripTicket::with('driver')->findOrFail($id);
+            $oldSnapshot = $this->modelSnapshot($trip);
 
             $validated = $request->validate([
                 'trip_no'        => 'required|string|max:50|unique:trip_tickets,trip_no,' . $trip->id,
@@ -141,42 +111,33 @@ class TripTicketController extends Controller
                 'remarks'        => 'nullable|string',
             ]);
 
-            $validated       = $this->normalizeDateTimes($validated);
-            $oldDriverId     = $trip->driver_id;
-            $oldTruckId      = $trip->truck_id;
-            $oldStatus       = $trip->status;
+            $validated           = $this->normalizeDateTimes($validated);
+            $oldDriverId         = $trip->driver_id;
+            $oldTruckId          = $trip->truck_id;
+            $oldStatus           = $trip->status;
             $validated['status'] = $trip->status;
 
             $trip->update($validated);
+            $trip->load('driver');
             $this->syncStatusesAfterTripChange($trip, $oldDriverId, $oldTruckId, $oldStatus);
+
+            $this->writeLog('updated', 'trip_ticket', $trip->id, $this->tripLabel($trip), $oldSnapshot, $this->modelSnapshot($trip->fresh()), null, $request);
 
             return response()->json($trip->load(['driver', 'truck']));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'message' => 'Trip ticket not found.',
-            ], 404);
+            return response()->json(['message' => 'Trip ticket not found.'], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Please check your inputs and try again.',
-                'errors'  => $e->errors(),
-            ], 422);
+            return response()->json(['message' => 'Please check your inputs and try again.', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            Log::error('Failed to update trip ticket', [
-                'trip_id' => $id,
-                'input'   => $request->all(),
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-            ]);
-            return response()->json([
-                'message' => 'Something went wrong while updating the trip ticket. Please try again.',
-            ], 500);
+            Log::error('Failed to update trip ticket', ['trip_id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Something went wrong while updating the trip ticket. Please try again.'], 500);
         }
     }
 
     public function transition(Request $request, $id)
     {
         try {
-            $trip = TripTicket::findOrFail($id);
+            $trip = TripTicket::with('driver')->findOrFail($id);
 
             $validated = $request->validate([
                 'status' => 'required|in:In-Transit,Completed,Cancelled',
@@ -188,27 +149,19 @@ class TripTicketController extends Controller
             ];
 
             $current = $trip->status;
+
             if (!isset($allowed[$current]) || !in_array($validated['status'], $allowed[$current])) {
-                return response()->json([
-                    'message' => "Cannot transition from {$current} to {$validated['status']}.",
-                ], 422);
+                return response()->json(['message' => "Cannot transition from {$current} to {$validated['status']}."], 422);
             }
 
             if ($validated['status'] === 'In-Transit') {
                 $truck = Truck::find($trip->truck_id);
                 if ($truck && $truck->status !== 'Available') {
-                    return response()->json([
-                        'message' => 'Truck is not available (' . $truck->status . ').',
-                        'errors'  => ['truck_id' => ['Truck is not available (' . $truck->status . ').']],
-                    ], 422);
+                    return response()->json(['message' => 'Truck is not available (' . $truck->status . ').', 'errors' => ['truck_id' => ['Truck is not available (' . $truck->status . ').']]], 422);
                 }
-
                 $driver = Driver::find($trip->driver_id);
                 if ($driver && $driver->status !== 'Available') {
-                    return response()->json([
-                        'message' => 'Driver is not available (' . $driver->status . ').',
-                        'errors'  => ['driver_id' => ['Driver is not available (' . $driver->status . ').']],
-                    ], 422);
+                    return response()->json(['message' => 'Driver is not available (' . $driver->status . ').', 'errors' => ['driver_id' => ['Driver is not available (' . $driver->status . ').']]], 422);
                 }
             }
 
@@ -216,166 +169,140 @@ class TripTicketController extends Controller
             $trip->update(['status' => $validated['status']]);
             $this->syncStatusesAfterTripChange($trip, null, null, $oldStatus);
 
+            $this->writeLog(
+                'status_changed',
+                'trip_ticket',
+                $trip->id,
+                $this->tripLabel($trip),
+                ['status' => $oldStatus],
+                ['status' => $validated['status']],
+                "{$oldStatus} → {$validated['status']}",
+                $request
+            );
+
             return response()->json($trip->load(['driver', 'truck']));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'message' => 'Trip ticket not found.',
-            ], 404);
+            return response()->json(['message' => 'Trip ticket not found.'], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Please check your inputs and try again.',
-                'errors'  => $e->errors(),
-            ], 422);
+            return response()->json(['message' => 'Please check your inputs and try again.', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            Log::error('Failed to transition trip ticket status', [
-                'trip_id' => $id,
-                'input'   => $request->all(),
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-            ]);
-            return response()->json([
-                'message' => 'Something went wrong while updating the trip status. Please try again.',
-            ], 500);
+            Log::error('Failed to transition trip ticket status', ['trip_id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Something went wrong while updating the trip status. Please try again.'], 500);
         }
     }
 
     public function archive(Request $request, $id)
     {
         try {
-            $validated = $request->validate([
-                'password' => 'required|string',
-            ]);
+            $validated = $request->validate(['password' => 'required|string']);
 
             if (!$this->checkAdminPassword($validated['password'])) {
-                Log::warning('Failed archive attempt — incorrect admin password', [
-                    'trip_id' => $id,
-                    'ip'      => $request->ip(),
-                ]);
-                return response()->json([
-                    'message' => 'Incorrect password.',
-                ], 403);
+                Log::warning('Failed archive attempt — incorrect admin password', ['trip_id' => $id, 'ip' => $request->ip()]);
+                return response()->json(['message' => 'Incorrect password.'], 403);
             }
 
-            $trip        = TripTicket::findOrFail($id);
+            $trip        = TripTicket::with('driver')->findOrFail($id);
             $oldDriverId = $trip->driver_id;
             $oldTruckId  = $trip->truck_id;
 
+            $this->writeLog('archived', 'trip_ticket', $trip->id, $this->tripLabel($trip), null, null, null, $request);
+
             $trip->update(['is_archived' => true]);
 
-            if ($oldDriverId) {
-                $this->syncDriverFromActiveTrips($oldDriverId);
-            }
-            if ($oldTruckId) {
-                $this->syncTruckFromActiveTrips($oldTruckId);
-            }
+            if ($oldDriverId) $this->syncDriverFromActiveTrips($oldDriverId);
+            if ($oldTruckId)  $this->syncTruckFromActiveTrips($oldTruckId);
 
             return response()->json(['message' => 'Trip ticket archived successfully.']);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'message' => 'Trip ticket not found.',
-            ], 404);
+            return response()->json(['message' => 'Trip ticket not found.'], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Please enter the admin password.',
-                'errors'  => $e->errors(),
-            ], 422);
+            return response()->json(['message' => 'Please enter the admin password.', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            Log::error('Failed to archive trip ticket', [
-                'trip_id' => $id,
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-            ]);
-            return response()->json([
-                'message' => 'Something went wrong while archiving the trip ticket. Please try again.',
-            ], 500);
+            Log::error('Failed to archive trip ticket', ['trip_id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Something went wrong while archiving the trip ticket. Please try again.'], 500);
         }
     }
 
-    public function unarchive($id)
+    public function unarchive(Request $request, $id)
     {
         try {
-            $trip = TripTicket::findOrFail($id);
+            $trip = TripTicket::with('driver')->findOrFail($id);
+
+            $this->writeLog('restored', 'trip_ticket', $trip->id, $this->tripLabel($trip), null, null, null, $request);
+
             $trip->update(['is_archived' => false]);
 
             return response()->json(['message' => 'Trip ticket restored successfully.']);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'message' => 'Trip ticket not found.',
-            ], 404);
+            return response()->json(['message' => 'Trip ticket not found.'], 404);
         } catch (\Exception $e) {
-            Log::error('Failed to unarchive trip ticket', [
-                'trip_id' => $id,
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-            ]);
-            return response()->json([
-                'message' => 'Something went wrong while restoring the trip ticket. Please try again.',
-            ], 500);
+            Log::error('Failed to unarchive trip ticket', ['trip_id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Something went wrong while restoring the trip ticket. Please try again.'], 500);
         }
     }
 
     public function destroy(Request $request, $id)
     {
         try {
-            $validated = $request->validate([
-                'password' => 'required|string',
-            ]);
+            $validated = $request->validate(['password' => 'required|string']);
 
             if (!$this->checkAdminPassword($validated['password'])) {
-                Log::warning('Failed delete attempt — incorrect admin password', [
-                    'trip_id' => $id,
-                    'ip'      => $request->ip(),
-                ]);
-                return response()->json([
-                    'message' => 'Incorrect password.',
-                ], 403);
+                Log::warning('Failed delete attempt — incorrect admin password', ['trip_id' => $id, 'ip' => $request->ip()]);
+                return response()->json(['message' => 'Incorrect password.'], 403);
             }
 
-            $trip        = TripTicket::findOrFail($id);
+            $trip        = TripTicket::with('driver')->findOrFail($id);
+            $snapshot    = $this->modelSnapshot($trip);
             $oldDriverId = $trip->driver_id;
             $oldTruckId  = $trip->truck_id;
 
+            // Capture label before deletion
+            $label = $this->tripLabel($trip);
+
             $trip->delete();
 
-            if ($oldDriverId) {
-                $this->syncDriverFromActiveTrips($oldDriverId);
-            }
-            if ($oldTruckId) {
-                $this->syncTruckFromActiveTrips($oldTruckId);
-            }
+            if ($oldDriverId) $this->syncDriverFromActiveTrips($oldDriverId);
+            if ($oldTruckId)  $this->syncTruckFromActiveTrips($oldTruckId);
+
+            $this->writeLog('deleted', 'trip_ticket', $id, $label, $snapshot, null, null, $request);
 
             return response()->json(['message' => 'Trip ticket deleted successfully.']);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'message' => 'Trip ticket not found.',
-            ], 404);
+            return response()->json(['message' => 'Trip ticket not found.'], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Please enter the admin password.',
-                'errors'  => $e->errors(),
-            ], 422);
+            return response()->json(['message' => 'Please enter the admin password.', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            Log::error('Failed to delete trip ticket', [
-                'trip_id' => $id,
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-            ]);
-            return response()->json([
-                'message' => 'Something went wrong while deleting the trip ticket. Please try again.',
-            ], 500);
+            Log::error('Failed to delete trip ticket', ['trip_id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Something went wrong while deleting the trip ticket. Please try again.'], 500);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Build the subject label for log entries.
+     * Format: "[trip_no] - [Driver first name]"
+     *
+     * @param  TripTicket $trip  Must have 'driver' relation already loaded
+     * @return string
+     */
+    private function tripLabel(TripTicket $trip): string
+    {
+        $firstName = optional($trip->driver)->full_name
+            ? explode(' ', trim($trip->driver->full_name))[0]
+            : '—';
+
+        return $trip->trip_no . ' - ' . $firstName;
     }
 
     private function checkAdminPassword(string $password): bool
     {
         $setting = AdminSetting::where('key', self::ADMIN_PASSWORD_KEY)->first();
         if (!$setting || !is_string($setting->value) || $setting->value === '') {
-            Log::error('Admin password setting missing or invalid', [
-                'key' => self::ADMIN_PASSWORD_KEY,
-            ]);
             return false;
         }
-
         return Hash::check($password, $setting->value);
     }
 
@@ -386,34 +313,21 @@ class TripTicketController extends Controller
                 $validated[$field] = str_replace('T', ' ', $validated[$field]) . ':00';
             }
         }
-
         return $validated;
     }
 
-    private function syncStatusesAfterTripChange(
-        TripTicket $trip,
-        ?int $oldDriverId = null,
-        ?int $oldTruckId = null,
-        ?string $oldStatus = null
-    ): void {
-        if ($oldDriverId && $oldDriverId !== $trip->driver_id) {
-            $this->syncDriverFromActiveTrips($oldDriverId);
-        }
-        if ($oldTruckId && $oldTruckId !== $trip->truck_id) {
-            $this->syncTruckFromActiveTrips($oldTruckId);
-        }
+    private function syncStatusesAfterTripChange(TripTicket $trip, ?int $oldDriverId = null, ?int $oldTruckId = null, ?string $oldStatus = null): void
+    {
+        if ($oldDriverId && $oldDriverId !== $trip->driver_id) $this->syncDriverFromActiveTrips($oldDriverId);
+        if ($oldTruckId  && $oldTruckId  !== $trip->truck_id)  $this->syncTruckFromActiveTrips($oldTruckId);
 
         $driver = Driver::find($trip->driver_id);
         $truck  = Truck::find($trip->truck_id);
-        if (!$driver || !$truck) {
-            return;
-        }
+
+        if (!$driver || !$truck) return;
 
         if ($trip->status === 'In-Transit') {
-            $driver->update([
-                'status'         => 'Covering',
-                'assigned_truck' => $truck->truck_code,
-            ]);
+            $driver->update(['status' => 'Covering', 'assigned_truck' => $truck->truck_code]);
             $truck->update(['status' => 'In-Transit']);
             return;
         }
@@ -445,18 +359,10 @@ class TripTicketController extends Controller
             ->latest('updated_at')
             ->first();
 
-        if ($activeTrip) {
-            $driver->update([
-                'status'         => 'Covering',
-                'assigned_truck' => optional($activeTrip->truck)->truck_code,
-            ]);
-            return;
-        }
-
-        $driver->update([
-            'status'         => 'Available',
-            'assigned_truck' => null,
-        ]);
+        $driver->update($activeTrip
+            ? ['status' => 'Covering', 'assigned_truck' => optional($activeTrip->truck)->truck_code]
+            : ['status' => 'Available', 'assigned_truck' => null]
+        );
     }
 
     private function syncTruckFromActiveTrips(int $truckId): void
@@ -469,8 +375,6 @@ class TripTicketController extends Controller
             ->where('is_archived', false)
             ->exists();
 
-        $truck->update([
-            'status' => $hasActiveTrip ? 'In-Transit' : 'Available',
-        ]);
+        $truck->update(['status' => $hasActiveTrip ? 'In-Transit' : 'Available']);
     }
 }

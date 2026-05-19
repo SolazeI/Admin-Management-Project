@@ -140,74 +140,25 @@
 
                                     {{-- Edit (active records only) --}}
                                     @if (!in_array($rec->status, ['Completed', 'Cancelled']))
-                                        <details style="display:inline-block;">
-                                            <summary class="btn btn-secondary" style="display:inline-flex; cursor:pointer; padding:5px 11px; font-size:12px; gap:4px;">
-                                                <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
-                                                Edit
-                                            </summary>
-                                            <div style="
-                                                position:absolute; right:0; top:calc(100% + 4px);
-                                                background:#fff; border:1px solid #e2e8f0; border-radius:10px;
-                                                box-shadow:0 8px 24px rgba(0,0,0,.12); padding:16px;
-                                                min-width:500px; z-index:300;">
-                                                <form class="editMaintenanceForm"
-                                                    action="{{ url('/maintenance/'.$rec->id) }}" method="POST"
-                                                    style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                                                    @csrf
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck</label>
-                                                        <select name="truck_id" class="search-input" style="width:100%;" required>
-                                                            @foreach ($trucks as $truck)
-                                                                <option value="{{ $truck->id }}" {{ $rec->truck_id === $truck->id ? 'selected' : '' }}>
-                                                                    {{ $truck->truck_code }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Start Date</label>
-                                                        <input type="date" name="start_date" class="search-input" style="width:100%;" value="{{ $rec->start_date }}">
-                                                    </div>
-                                                    <div style="grid-column: 1 / -1;">
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Issue Description</label>
-                                                        <input name="issue_description" class="search-input" style="width:100%;" value="{{ $rec->issue_description }}" required>
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Notes</label>
-                                                        <input name="notes" class="search-input" style="width:100%;" value="{{ $rec->notes }}" placeholder="Notes">
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Cost</label>
-                                                        <input name="cost" class="search-input" style="width:100%;" value="{{ $rec->cost }}" placeholder="Cost (optional)">
-                                                    </div>
-                                                    {{-- Edit inline error box --}}
-                                                    <div class="editMaintError" style="
-                                                        display:none; grid-column: 1 / -1;
-                                                        padding:10px 12px; background:#fef2f2;
-                                                        border:1px solid #fca5a5; border-radius:8px;">
-                                                        <div style="display:flex; align-items:flex-start; gap:8px;">
-                                                            <span class="material-symbols-outlined" style="color:#dc2626; font-size:16px; margin-top:1px; flex-shrink:0;">error</span>
-                                                            <ul class="editMaintErrorList" style="
-                                                                margin:0; padding:0; list-style:none;
-                                                                font-size:12px; color:#dc2626; line-height:1.6;"></ul>
-                                                        </div>
-                                                    </div>
-                                                    <div style="grid-column: 1 / -1; display:flex; gap:8px; justify-content:flex-end; padding-top:4px;">
-                                                        <button class="btn btn-primary" type="submit" style="font-size:12px; padding:6px 14px;">Save Changes</button>
-                                                    </div>
-                                                </form>
-                                                {{-- Archive replaces Delete for active records --}}
-                                                <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9;">
-                                                    <button type="button" class="btn btn-secondary" style="font-size:12px; gap:4px;"
-                                                        onclick="confirmArchiveMaint({{ $rec->id }}, '{{ addslashes($rec->issue_description) }}')">
-                                                        <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
-                                                        Archive Record
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </details>
+                                        <button type="button" class="btn btn-secondary"
+                                            style="padding:5px 11px; font-size:12px; gap:4px;"
+                                            onclick="openEditMaint(
+                                                {{ $rec->id }},
+                                                {{ $rec->truck_id }},
+                                                '{{ $rec->start_date ?? '' }}',
+                                                '{{ addslashes($rec->issue_description) }}',
+                                                '{{ addslashes($rec->notes ?? '') }}',
+                                                '{{ $rec->cost ?? '' }}'
+                                            )">
+                                            <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                                            Edit
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
+                                            onclick="confirmArchiveMaint({{ $rec->id }}, '{{ addslashes($rec->issue_description) }}')">
+                                            <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
+                                            Archive
+                                        </button>
                                     @else
-                                        {{-- Completed / Cancelled: archive only --}}
                                         <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
                                             onclick="confirmArchiveMaint({{ $rec->id }}, '{{ addslashes($rec->issue_description) }}')">
                                             <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
@@ -448,6 +399,64 @@
                 <button type="button" class="btn btn-primary" style="background:#dc2626;"
                     onclick="confirmMaintDeleteAction()">Delete Permanently</button>
             </div>
+        </div>
+    </div>
+
+    {{-- ── EDIT MAINTENANCE MODAL ────────────────────────────────────── --}}
+    <div class="modal" id="editMaintenanceModal">
+        <div class="modal-content" style="max-width:680px;">
+            <div class="modal-header">
+                <span class="material-symbols-outlined">edit</span>
+                <h2>Edit Maintenance Record</h2>
+            </div>
+            <form id="editMaintenanceForm">
+                @csrf
+                <input type="hidden" id="editMaintId">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Truck <span class="required">*</span></label>
+                            <select name="truck_id" id="editMaintTruckId" required>
+                                @foreach ($trucks as $truck)
+                                    <option value="{{ $truck->id }}">{{ $truck->truck_code }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="date" name="start_date" id="editMaintStartDate">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label>Issue Description <span class="required">*</span></label>
+                        <input type="text" name="issue_description" id="editMaintIssue" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <input type="text" name="notes" id="editMaintNotes" placeholder="Notes (optional)">
+                        </div>
+                        <div class="form-group">
+                            <label>Cost</label>
+                            <input type="text" name="cost" id="editMaintCost" placeholder="₱ Cost (optional)">
+                        </div>
+                    </div>
+                    <div id="editMaintError" style="
+                        display:none; margin-top:14px; padding:12px 14px;
+                        background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
+                        <div style="display:flex; align-items:flex-start; gap:8px;">
+                            <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
+                            <ul id="editMaintErrorList" style="
+                                margin:0; padding:0; list-style:none;
+                                font-size:13px; color:#dc2626; line-height:1.6;"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal('editMaintenanceModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 

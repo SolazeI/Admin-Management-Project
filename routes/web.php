@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -14,9 +15,7 @@ Route::redirect('/', '/admin/login');
 Route::redirect('/login', '/admin/login');
 
 // Admin login
-Route::get('/admin/login', function () {
-    return view('login');
-})->name('admin.login');
+Route::get('/admin/login', fn () => view('login'))->name('admin.login');
 Route::post('/admin/login', [AuthController::class, 'authenticate'])->name('admin.login.submit');
 
 Route::middleware('admin')->group(function () {
@@ -26,6 +25,7 @@ Route::middleware('admin')->group(function () {
     Route::get('/admin/password', [AuthController::class, 'showChangePassword'])->name('admin.password');
     Route::post('/admin/password', [AuthController::class, 'changePassword'])->name('admin.password.update');
 
+    // Drivers
     Route::prefix('drivers')->group(function () {
         Route::get('/archived', [DriverController::class, 'archived']);
         Route::get('/search', [DriverController::class, 'search']);
@@ -65,4 +65,10 @@ Route::middleware('admin')->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::post('/reports/compile', [ReportController::class, 'compile'])->name('reports.compile');
     Route::get('/reports/{compilation}/download', [ReportController::class, 'download'])->name('reports.download');
+    Route::get('/reports/export/driver/{driver}', [ReportController::class, 'exportDriver'])->name('reports.export.driver');
+    Route::get('/reports/export/maintenance',     [ReportController::class, 'exportMaintenance'])->name('reports.export.maintenance');
+
+    // Activity Logs
+    Route::get('/logs', [ActivityLogController::class, 'index'])->name('logs.index');
+    Route::get('/logs/{id}', [ActivityLogController::class, 'show'])->name('logs.show');
 });

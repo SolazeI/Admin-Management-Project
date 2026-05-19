@@ -70,7 +70,18 @@
                 </thead>
                 <tbody>
                     @forelse ($tripTickets as $trip)
-                        <tr data-trip-id="{{ $trip->id }}">
+                        <tr data-trip-id="{{ $trip->id }}"
+                        data-trip-no="{{ $trip->trip_no }}"
+                        data-date-issued="{{ optional($trip->date_issued)->format('Y-m-d') }}"
+                        data-truck-id="{{ $trip->truck_id }}"
+                        data-driver-id="{{ $trip->driver_id }}"
+                        data-origin="{{ $trip->origin }}"
+                        data-destination="{{ $trip->destination }}"
+                        data-departure="{{ $trip->departure_time ? \Carbon\Carbon::parse($trip->departure_time)->format('Y-m-d\TH:i') : '' }}"
+                        data-arrival="{{ $trip->arrival_time ? \Carbon\Carbon::parse($trip->arrival_time)->format('Y-m-d\TH:i') : '' }}"
+                        data-distance="{{ $trip->distance_km }}"
+                        data-amount="{{ $trip->amount }}"
+                        data-remarks="{{ addslashes($trip->remarks) }}">
                             <td style="font-weight:700;">{{ $trip->trip_no }}</td>
                             <td>{{ $trip->truck->truck_code ?? '—' }}</td>
                             <td>{{ $trip->driver->full_name ?? '—' }}</td>
@@ -114,117 +125,18 @@
 
                                     {{-- Edit panel --}}
                                     @if (!in_array($trip->status, ['Completed', 'Cancelled']))
-                                        <details class="trip-edit-details" style="display:inline-block;">
-                                            <summary class="btn btn-secondary" style="display:inline-flex; cursor:pointer; padding:5px 11px; font-size:12px; gap:4px;">
-                                                <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
-                                                Edit
-                                            </summary>
-                                            <div style="
-                                                position:absolute; right:0; top:calc(100% + 4px);
-                                                background:#fff; border:1px solid #e2e8f0; border-radius:10px;
-                                                box-shadow:0 8px 24px rgba(0,0,0,.12); padding:16px;
-                                                min-width:560px; z-index:300;">
-                                                <form class="trip-edit-form" data-id="{{ $trip->id }}"
-                                                    style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                                                    @csrf
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Trip No.</label>
-                                                        <input name="trip_no" class="search-input" style="width:100%;" value="{{ $trip->trip_no }}" required>
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Date Issued</label>
-                                                        <input type="date" name="date_issued" class="search-input" style="width:100%;" value="{{ optional($trip->date_issued)->format('Y-m-d') }}">
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck</label>
-                                                        <select name="truck_id" class="search-input" style="width:100%;" required>
-                                                            @foreach ($allTrucks as $truck)
-                                                                @if ($truck->status === 'Available' || $trip->truck_id === $truck->id)
-                                                                    <option value="{{ $truck->id }}" {{ $trip->truck_id === $truck->id ? 'selected' : '' }}>
-                                                                        {{ $truck->truck_code }}
-                                                                    </option>
-                                                                @endif
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Driver</label>
-                                                        <select name="driver_id" class="search-input" style="width:100%;" required>
-                                                            @foreach ($allDrivers as $driver)
-                                                                @if ($driver->status === 'Available' || $trip->driver_id === $driver->id)
-                                                                    <option value="{{ $driver->id }}" {{ $trip->driver_id === $driver->id ? 'selected' : '' }}>
-                                                                        {{ $driver->full_name }}
-                                                                    </option>
-                                                                @endif
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Origin</label>
-                                                        <input name="origin" class="search-input" style="width:100%;" value="{{ $trip->origin }}" placeholder="Origin">
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Destination</label>
-                                                        <input name="destination" class="search-input" style="width:100%;" value="{{ $trip->destination }}" placeholder="Destination">
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Departure Time</label>
-                                                        <input type="datetime-local" name="departure_time" class="search-input" style="width:100%;"
-                                                            value="{{ $trip->departure_time ? \Illuminate\Support\Carbon::parse($trip->departure_time)->format('Y-m-d\TH:i') : '' }}">
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Arrival Time</label>
-                                                        <input type="datetime-local" name="arrival_time" class="search-input" style="width:100%;"
-                                                            value="{{ $trip->arrival_time ? \Illuminate\Support\Carbon::parse($trip->arrival_time)->format('Y-m-d\TH:i') : '' }}">
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Distance (km)</label>
-                                                        <input name="distance_km" class="search-input" style="width:100%;" value="{{ $trip->distance_km }}" placeholder="Distance km">
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Amount</label>
-                                                        <input name="amount" class="search-input" style="width:100%;" value="{{ $trip->amount }}" placeholder="₱ Amount">
-                                                    </div>
-                                                    <div style="grid-column: 1 / -1;">
-                                                        <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Remarks</label>
-                                                        <textarea name="remarks" class="search-input"
-                                                            style="width:100%; height:60px; resize:none;">{{ $trip->remarks }}</textarea>
-                                                    </div>
-
-                                                    {{-- Inline Error Box --}}
-                                                    <div class="trip-form-error" style="
-                                                        display:none; grid-column: 1 / -1;
-                                                        padding:12px 14px; background:#fef2f2;
-                                                        border:1px solid #fca5a5; border-radius:8px;">
-                                                        <div style="display:flex; align-items:flex-start; gap:8px;">
-                                                            <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
-                                                            <ul class="trip-form-error-list" style="
-                                                                margin:0; padding:0; list-style:none;
-                                                                font-size:13px; color:#dc2626; line-height:1.6;"></ul>
-                                                        </div>
-                                                    </div>
-
-                                                    <div style="grid-column: 1 / -1; display:flex; gap:8px; justify-content:flex-end; padding-top:4px;">
-                                                        <button class="btn btn-primary trip-edit-save-btn" type="submit" style="font-size:12px; padding:6px 14px;">Save Changes</button>
-                                                    </div>
-                                                </form>
-
-                                                <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9;">
-                                                    <button type="button" class="btn btn-secondary" style="font-size:12px; gap:4px;"
-                                                        onclick="confirmArchiveTrip({{ $trip->id }}, '{{ addslashes($trip->trip_no) }}')">
-                                                        <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
-                                                        Archive Trip
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </details>
-                                    @else
-                                        <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
-                                            onclick="confirmArchiveTrip({{ $trip->id }}, '{{ addslashes($trip->trip_no) }}')">
-                                            <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
-                                            Archive
+                                        <button type="button" class="btn btn-secondary"
+                                            style="padding:5px 11px; font-size:12px; gap:4px;"
+                                            onclick="openEditTrip({{ $trip->id }})">
+                                            <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                                            Edit
                                         </button>
                                     @endif
+                                    <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
+                                        onclick="confirmArchiveTrip({{ $trip->id }}, '{{ addslashes($trip->trip_no) }}')">
+                                        <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
+                                        Archive
+                                    </button>
 
                                 </div>
                             </td>
@@ -488,6 +400,88 @@
                 <button type="button" class="btn btn-primary" style="background:#dc2626;"
                     onclick="confirmDeleteAction()">Delete Permanently</button>
             </div>
+        </div>
+    </div>
+
+    {{-- ── EDIT TRIP MODAL ──────────────────────────────────────────── --}}
+    <div class="modal" id="editTripModal">
+        <div class="modal-content" style="max-width:900px;">
+            <div class="modal-header">
+                <span class="material-symbols-outlined">edit</span>
+                <h2>Edit Trip Ticket</h2>
+            </div>
+            <form id="editTripForm">
+                @csrf
+                <input type="hidden" id="editTripId">
+                <div class="modal-body">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Trip No.</label>
+                            <input name="trip_no" id="editTripNo" class="search-input" style="width:100%;" required>
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Date Issued</label>
+                            <input type="date" name="date_issued" id="editTripDateIssued" class="search-input" style="width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck</label>
+                            <select name="truck_id" id="editTripTruckId" class="search-input" style="width:100%;" required>
+                                @foreach ($allTrucks as $truck)
+                                    <option value="{{ $truck->id }}">{{ $truck->truck_code }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Driver</label>
+                            <select name="driver_id" id="editTripDriverId" class="search-input" style="width:100%;" required>
+                                @foreach ($allDrivers as $driver)
+                                    <option value="{{ $driver->id }}">{{ $driver->full_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Origin</label>
+                            <input name="origin" id="editTripOrigin" class="search-input" style="width:100%;" placeholder="Origin">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Destination</label>
+                            <input name="destination" id="editTripDestination" class="search-input" style="width:100%;" placeholder="Destination">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Departure Time</label>
+                            <input type="datetime-local" name="departure_time" id="editTripDeparture" class="search-input" style="width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Arrival Time</label>
+                            <input type="datetime-local" name="arrival_time" id="editTripArrival" class="search-input" style="width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Distance (km)</label>
+                            <input name="distance_km" id="editTripDistance" class="search-input" style="width:100%;" placeholder="Distance km">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Amount</label>
+                            <input name="amount" id="editTripAmount" class="search-input" style="width:100%;" placeholder="₱ Amount">
+                        </div>
+                        <div style="grid-column:1/-1;">
+                            <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Remarks</label>
+                            <textarea name="remarks" id="editTripRemarks" class="search-input" style="width:100%; height:60px; resize:none;"></textarea>
+                        </div>
+                        <div id="editTripError" style="
+                            display:none; grid-column:1/-1; padding:12px 14px;
+                            background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
+                            <div style="display:flex; align-items:flex-start; gap:8px;">
+                                <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
+                                <ul id="editTripErrorList" style="margin:0; padding:0; list-style:none; font-size:13px; color:#dc2626; line-height:1.6;"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal('editTripModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 
