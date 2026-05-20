@@ -18,7 +18,6 @@ function showFormError(boxId, listId, errors) {
             list.appendChild(li);
         });
     } else if (typeof errors === 'object') {
-        // Laravel validation errors: { field: ['msg1', 'msg2'] }
         Object.values(errors).flat().forEach(msg => {
             const li = document.createElement('li');
             li.textContent = msg;
@@ -31,8 +30,6 @@ function showFormError(boxId, listId, errors) {
     }
 
     box.style.display = 'block';
-
-    // Scroll the error into view inside the modal body
     box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -55,6 +52,14 @@ function clearPasswordError(errorId) {
     if (el) el.style.display = 'none';
 }
 
+// ── CSRF ──────────────────────────────────────────────────
+
+function getCsrf() {
+    return document.querySelector('meta[name="csrf-token"]')?.content
+        || document.querySelector('input[name="_token"]')?.value
+        || '';
+}
+
 // ── Init ──────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -70,11 +75,6 @@ function initializeEventListeners() {
     const archivedBtn = document.getElementById('archivedBtn');
     if (archivedBtn) {
         archivedBtn.addEventListener('click', loadArchivedDrivers);
-    }
-
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', debounce(handleSearch, 300));
     }
 
     const archivedSearchInput = document.getElementById('archivedSearchInput');
@@ -118,7 +118,6 @@ function initializeEventListeners() {
         editDriverForm.addEventListener('submit', handleEditDriver);
     }
 
-    // Clear errors when modal is closed by clicking outside
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', function (e) {
             if (e.target === this) {
@@ -127,7 +126,6 @@ function initializeEventListeners() {
         });
     });
 
-    // Clear password errors when typing
     const adminPassword = document.getElementById('adminPassword');
     if (adminPassword) {
         adminPassword.addEventListener('input', () => clearPasswordError('archivePasswordError'));
@@ -194,13 +192,13 @@ async function viewDriver(driverId) {
         const response = await fetch(`/drivers/${driverId}`);
         const driver   = await response.json();
 
-        document.getElementById('viewFullName').value        = driver.full_name;
-        document.getElementById('viewPhoneNumber').value     = driver.phone_number;
-        document.getElementById('viewLicenseNumber').value   = driver.license_number;
-        document.getElementById('viewLicenseExpiry').value   = formatDateForInput(driver.license_expiry_date);
-        document.getElementById('viewAddress').value         = driver.address;
+        document.getElementById('viewFullName').value         = driver.full_name;
+        document.getElementById('viewPhoneNumber').value      = driver.phone_number;
+        document.getElementById('viewLicenseNumber').value    = driver.license_number;
+        document.getElementById('viewLicenseExpiry').value    = formatDateForInput(driver.license_expiry_date);
+        document.getElementById('viewAddress').value          = driver.address;
         document.getElementById('viewEmergencyContact').value = driver.emergency_contact;
-        document.getElementById('viewFilePath').value        = driver.file_url || '';
+        document.getElementById('viewFilePath').value         = driver.file_url || '';
 
         const viewFileBtn = document.getElementById('viewFileBtnModal');
         viewFileBtn.style.display = driver.file_url ? 'inline-flex' : 'none';
@@ -218,9 +216,7 @@ async function viewDriver(driverId) {
 
 function viewDriverFileFromModal() {
     const fileUrl = document.getElementById('viewFilePath').value;
-    if (fileUrl) {
-        window.open(fileUrl, '_blank');
-    }
+    if (fileUrl) window.open(fileUrl, '_blank');
 }
 
 // ── Edit Driver ───────────────────────────────────────────
@@ -259,8 +255,8 @@ async function handleAddDriver(e) {
         return;
     }
 
-    const formData    = new FormData(e.target);
-    const expiryDate  = formData.get('license_expiry_date');
+    const formData   = new FormData(e.target);
+    const expiryDate = formData.get('license_expiry_date');
     if (expiryDate && expiryDate.includes('/')) {
         const [m, d, y] = expiryDate.split('/');
         formData.set('license_expiry_date', `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
@@ -270,7 +266,7 @@ async function handleAddDriver(e) {
         const response = await fetch('/drivers', {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'X-CSRF-TOKEN': getCsrf(),
                 'Accept': 'application/json',
             },
             body: formData,
@@ -316,7 +312,7 @@ async function handleEditDriver(e) {
         const response = await fetch(`/drivers/${driverId}`, {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'X-CSRF-TOKEN': getCsrf(),
                 'Accept': 'application/json',
             },
             body: formData,
@@ -372,7 +368,7 @@ async function confirmArchiveAction() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'X-CSRF-TOKEN': getCsrf(),
             },
             body: JSON.stringify({ password }),
         });
@@ -433,7 +429,7 @@ async function confirmUnarchiveAction() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'X-CSRF-TOKEN': getCsrf(),
             },
             body: JSON.stringify({ password }),
         });
@@ -543,66 +539,10 @@ function openArchivedActionsMenu(driverId) {
     }, 0);
 }
 
-// ── Search ────────────────────────────────────────────────
-
-async function handleSearch(e) {
-    const query = e.target.value.trim();
-    if (query.length === 0) { location.reload(); return; }
-
-    try {
-        const response = await fetch(`/drivers/search?q=${encodeURIComponent(query)}`);
-        updateDriversTable(await response.json());
-    } catch (error) {
-        console.error('Error searching drivers:', error);
-    }
-}
-
 function handleArchivedSearch(e) {
     const query = e.target.value.toLowerCase();
     document.querySelectorAll('#archivedTableBody tr').forEach(row => {
         row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
-    });
-}
-
-// ── Table Update ──────────────────────────────────────────
-
-function updateDriversTable(drivers) {
-    const tbody = document.getElementById('driversTableBody');
-    tbody.innerHTML = '';
-
-    if (drivers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No drivers found</td></tr>';
-        return;
-    }
-
-    drivers.forEach(driver => {
-        const row         = document.createElement('tr');
-        const statusClass = driver.status.toLowerCase().replace(/[-\s]/g, '');
-
-        row.innerHTML = `
-            <td>
-                <span class="material-symbols-outlined driver-icon">person</span>
-                ${driver.full_name}
-            </td>
-            <td>${driver.phone_number}</td>
-            <td>${driver.license_number}</td>
-            <td>${driver.assigned_truck || 'Unassigned'}</td>
-            <td>
-                <span class="status-badge status-${statusClass}">${driver.status}</span>
-            </td>
-            <td>
-                <button class="action-btn" onclick="openActionsMenu(${driver.id})">
-                    <span class="material-symbols-outlined">more_vert</span>
-                </button>
-                <div class="actions-menu" id="menu-${driver.id}">
-                    <button disabled>Select Action</button>
-                    <button onclick="viewDriver(${driver.id})">View</button>
-                    <button onclick="editDriver(${driver.id})">Edit</button>
-                    <button onclick="confirmArchive(${driver.id}, ${JSON.stringify(driver.full_name)})">Archive</button>
-                </div>
-            </td>
-        `;
-        tbody.appendChild(row);
     });
 }
 
@@ -669,7 +609,63 @@ if (!document.querySelector('meta[name="csrf-token"]')) {
     document.head.appendChild(meta);
 }
 
-// ── Filter Panel ──────────────────────────────────────────
+// ── Server Error Banner ───────────────────────────────────
+
+function showDriverServerError(message, sub = '') {
+    const banner = document.getElementById('driverServerError');
+    const text   = document.getElementById('driverServerErrorText');
+    const subEl  = document.getElementById('driverServerErrorSub');
+    if (!banner || !text) return;
+    text.textContent = message;
+    if (subEl) subEl.textContent = sub;
+    banner.style.display = 'flex';
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideDriverServerError() {
+    const banner = document.getElementById('driverServerError');
+    if (banner) banner.style.display = 'none';
+}
+
+// ── Empty State ───────────────────────────────────────────
+
+function showDriverEmptyState(message) {
+    document.querySelectorAll('#driversTableBody tr[data-driver-row]').forEach(r => r.style.display = 'none');
+    const tbody = document.getElementById('driversTableBody');
+    let el = document.getElementById('driverEmptyStateRow');
+    if (!el) {
+        el = document.createElement('tr');
+        el.id = 'driverEmptyStateRow';
+        el.innerHTML = `<td colspan="6" class="no-data" id="driverEmptyStateMsg"></td>`;
+        tbody.appendChild(el);
+    }
+    document.getElementById('driverEmptyStateMsg').textContent = message;
+    el.style.display = '';
+}
+
+function hideDriverEmptyState() {
+    const el = document.getElementById('driverEmptyStateRow');
+    if (el) el.style.display = 'none';
+}
+
+function restoreAllDriverRows() {
+    document.querySelectorAll('#driversTableBody tr[data-driver-row]').forEach(r => r.style.display = '');
+}
+
+function normalizeDriverStatusValue(value) {
+    const map = { available: 'Available', covering: 'Covering' };
+    return map[value] ?? value;
+}
+
+function httpDriverErrorSubtitle(status) {
+    switch (status) {
+        case 422: return 'The request contained invalid data.';
+        case 500: return 'An unexpected server error occurred. Please try again later.';
+        default:  return `Server responded with status ${status}.`;
+    }
+}
+
+// ── Filter Panel toggle ───────────────────────────────────
 
 const filterBtn   = document.getElementById('filterBtn');
 const filterPanel = document.getElementById('filterPanel');
@@ -686,23 +682,118 @@ document.addEventListener('click', (e) => {
 });
 
 document.querySelectorAll('.status-filter').forEach(cb => {
-    cb.addEventListener('change', applyDriverFilters);
+    cb.addEventListener('change', applyFilters);
 });
 
 function clearFilters() {
     document.querySelectorAll('.status-filter').forEach(cb => cb.checked = true);
-    applyDriverFilters();
+    document.getElementById('searchInput').value = '';
+    applyFilters();
 }
 
-function applyDriverFilters() {
-    const checked = Array.from(document.querySelectorAll('.status-filter:checked')).map(cb => cb.value);
+// ── Search input (debounced) ──────────────────────────────
 
-    document.querySelectorAll('#driversTableBody tr').forEach(row => {
-        const badge = row.querySelector('.status-badge');
-        if (!badge) return;
-        const status = Array.from(badge.classList)
-            .find(c => c.startsWith('status-') && c !== 'status-badge')
-            ?.replace('status-', '') ?? '';
-        row.style.display = checked.includes(status) ? '' : 'none';
-    });
+let _driverFilterDebounce = null;
+document.getElementById('searchInput').addEventListener('input', function () {
+    clearTimeout(_driverFilterDebounce);
+    _driverFilterDebounce = setTimeout(applyFilters, 300);
+});
+
+// ── Core filter logic (mirrors fleet.js) ─────────────────
+
+async function applyFilters() {
+    hideDriverServerError();
+    hideDriverEmptyState();
+    restoreAllDriverRows();
+
+    const query   = document.getElementById('searchInput').value.trim();
+    const checked = Array.from(document.querySelectorAll('.status-filter:checked'))
+        .map(cb => normalizeDriverStatusValue(cb.value));
+
+    if (checked.length === 0) {
+        showDriverEmptyState('No statuses selected. Use the filter to choose at least one.');
+        return;
+    }
+
+    // ── Status filter only ────────────────────────────────
+    if (!query) {
+        try {
+            const params   = checked.map(s => `statuses[]=${encodeURIComponent(s)}`).join('&');
+            const response = await fetch(`/drivers/filter-status?${params}`, {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+            });
+            const data = await response.json().catch(() => null);
+
+            if (response.status === 404) {
+                document.querySelectorAll('#driversTableBody tr[data-driver-row]').forEach(r => r.style.display = 'none');
+                showDriverEmptyState(data?.message || `No drivers found for: ${checked.join(', ')}.`);
+                return;
+            }
+            if (!response.ok) {
+                showDriverServerError(data?.message || 'Filter failed.', httpDriverErrorSubtitle(response.status));
+                return;
+            }
+
+            const resultIds = new Set((data.data ?? []).map(d => String(d.id)));
+            let anyVisible  = false;
+            document.querySelectorAll('#driversTableBody tr[data-driver-row]').forEach(row => {
+                const visible = resultIds.has(String(row.dataset.driverId ?? ''));
+                row.style.display = visible ? '' : 'none';
+                if (visible) anyVisible = true;
+            });
+            if (!anyVisible) showDriverEmptyState(`No drivers found for: ${checked.join(', ')}.`);
+
+        } catch (err) {
+            console.error('Driver filter error:', err);
+            showDriverServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+        }
+        return;
+    }
+
+    // ── Search + status filter ────────────────────────────
+    try {
+        const response = await fetch(`/drivers/search?q=${encodeURIComponent(query)}`, {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+        });
+        const data = await response.json().catch(() => null);
+
+        if (response.status === 404) {
+            document.querySelectorAll('#driversTableBody tr[data-driver-row]').forEach(r => r.style.display = 'none');
+            showDriverEmptyState(data?.message || `No results found for "${query}".`);
+            return;
+        }
+        if (response.status === 422) {
+            showDriverServerError(data?.message || 'Invalid search input.', httpDriverErrorSubtitle(422));
+            return;
+        }
+        if (!response.ok) {
+            showDriverServerError(data?.message || 'Search failed.', httpDriverErrorSubtitle(response.status));
+            return;
+        }
+
+        const resultIds = new Set((data.data ?? []).map(d => String(d.id)));
+        let anyVisible  = false;
+        document.querySelectorAll('#driversTableBody tr[data-driver-row]').forEach(row => {
+            const driverId       = String(row.dataset.driverId ?? '');
+            const rowStatus      = row.dataset.status ?? '';
+            const inSearch       = resultIds.has(driverId);
+            const inStatusFilter = Boolean(checked.find(s => s.toLowerCase() === rowStatus));
+            const visible        = inSearch && inStatusFilter;
+            row.style.display    = visible ? '' : 'none';
+            if (visible) anyVisible = true;
+        });
+
+        if (!anyVisible) {
+            const statusLabel = checked.length < 2 ? checked.join(' / ') : null;
+            showDriverEmptyState(
+                statusLabel
+                    ? `No "${statusLabel}" drivers match "${query}".`
+                    : `No results found for "${query}".`
+            );
+        }
+
+    } catch (err) {
+        console.error('Driver filter/search error:', err);
+        showDriverServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+    }
 }

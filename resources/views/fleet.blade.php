@@ -56,9 +56,25 @@
         Trucks currently on scheduled trips will become available when trip tickets are marked complete.
     </div>
 
-    <div class="fleet-list">
+    <div id="fleetServerError" style="
+        display:none; margin-bottom:12px; padding:12px 16px;
+        background:#fef2f2; border:1px solid #fca5a5; border-radius:10px;
+        align-items:flex-start; gap:10px;">
+        <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; flex-shrink:0; margin-top:1px;">error</span>
+        <div style="flex:1;">
+            <p id="fleetServerErrorText" style="margin:0; font-size:13px; color:#dc2626; font-weight:600;"></p>
+            <p id="fleetServerErrorSub"  style="margin:4px 0 0; font-size:12px; color:#b91c1c;"></p>
+        </div>
+        <button onclick="hideFleetServerError()" style="background:none; border:none; cursor:pointer; padding:0; color:#dc2626;">
+            <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
+    </div>
+
+    <div class="fleet-list" id="fleetList">
         @forelse ($trucks as $truck)
-            <article class="fleet-card" data-id="{{ $truck->id }}">
+            <article class="fleet-card"
+                data-fleet-id="{{ $truck->id }}"
+                data-status="{{ strtolower(str_replace(['-',' '], '', $truck->status)) }}">
                 <div class="fleet-card-head">
                     <div>
                         <div class="fleet-code">{{ $truck->truck_code }}</div>
@@ -111,7 +127,7 @@
                             </div>
                             @endif
 
-                            {{-- Edit Error Box --}}
+                            {{-- Inline Error Box --}}
                             <div class="fleet-form-error" style="
                                 display:none; padding:12px 14px;
                                 background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
@@ -123,14 +139,25 @@
                                 </div>
                             </div>
 
-                            <div style="display:flex; gap:8px; align-items:center;">
-                                <button class="btn btn-primary fleet-save-btn" type="submit" style="align-self:flex-end;">Save</button>
-                                <button class="btn btn-cancel fleet-delete-btn" type="button"
-                                    data-id="{{ $truck->id }}"
+                            {{-- Card Footer --}}
+                            <div style="display:flex; gap:8px; align-items:center; justify-content:space-between; padding-top:12px; border-top:1px solid #e2e8f0; margin-top:12px;">
+                                <button class="btn btn-cancel" type="button"
                                     onclick="confirmDeleteTruck({{ $truck->id }}, {{ json_encode($truck->truck_code) }})">
-                                    Delete Truck
+                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                    Delete
                                 </button>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn btn-cancel" type="button"
+                                        onclick="this.closest('details').removeAttribute('open')">
+                                        Cancel
+                                    </button>
+                                    <button class="btn btn-primary fleet-save-btn" type="submit">
+                                        <span class="material-symbols-outlined" style="font-size:16px;">save</span>
+                                        Save
+                                    </button>
+                                </div>
                             </div>
+
                         </form>
                     </div>
                 </details>
@@ -140,6 +167,9 @@
                 <p class="no-data">No trucks found.</p>
             </div>
         @endforelse
+        <div id="fleetEmptyState" style="display:none;">
+            <p class="no-data" id="fleetEmptyStateMsg">No results found.</p>
+        </div>
     </div>
 
     {{-- ===================== ADD FLEET MODAL ===================== --}}
@@ -200,16 +230,41 @@
     <div class="modal" id="deleteTruckModal1">
         <div class="modal-content warning-modal">
             <div class="modal-header warning-header">
-                <span class="material-symbols-outlined warning-icon">warning</span>
+                <span class="material-symbols-outlined warning-icon" style="color:#dc2626;">warning</span>
                 <h2>Delete Truck</h2>
             </div>
             <div class="modal-body">
                 <p><strong>Truck:</strong> <span id="deleteTruckCode"></span></p>
-                <p>Are you sure you want to delete this truck? This action cannot be undone.</p>
+                <p style="color:#dc2626; font-weight:600;">This action cannot be undone.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-cancel" onclick="closeFleetModal('deleteTruckModal1')">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="proceedToDeleteTruck()">Yes, Delete</button>
+                <button type="button" class="btn btn-primary" style="background:#dc2626;"
+                    onclick="proceedToDeleteTruckPassword()">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="deleteTruckModal2">
+        <div class="modal-content warning-modal">
+            <div class="modal-header warning-header">
+                <span class="material-symbols-outlined warning-icon">lock</span>
+                <h2>Confirm with Password</h2>
+            </div>
+            <div class="modal-body">
+                <p>Enter admin password to permanently delete this truck.</p>
+                <input type="password" class="password-input" id="deleteTruckPassword" placeholder="Admin password">
+                <p id="deleteTruckPasswordError" style="
+                    display:none; margin-top:8px; font-size:13px; color:#dc2626;
+                    display:none; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;">error</span>
+                    <span id="deleteTruckPasswordErrorText"></span>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeFleetModal('deleteTruckModal2')">Cancel</button>
+                <button type="button" class="btn btn-primary" style="background:#dc2626;"
+                    onclick="confirmTruckDeleteAction()">Delete Permanently</button>
             </div>
         </div>
     </div>

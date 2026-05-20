@@ -38,6 +38,8 @@ Route::middleware('admin')->group(function () {
     });
 
     // Fleet Management
+    Route::get('/fleet/search', [TruckController::class, 'search'])->name('fleet.search');
+    Route::get('/fleet/filter-status', [TruckController::class, 'filterByStatus'])->name('fleet.filterStatus');
     Route::get('/fleet', [TruckController::class, 'index'])->name('fleet.index');
     Route::post('/fleet', [TruckController::class, 'store'])->name('fleet.store');
     Route::post('/fleet/{truck}', [TruckController::class, 'update'])->name('fleet.update');
@@ -45,15 +47,19 @@ Route::middleware('admin')->group(function () {
 
     // Trip Tickets
     Route::get('/trips', [TripTicketController::class, 'index'])->name('trips.index');
+    Route::get('/trips/search', [TripTicketController::class, 'search'])->name('trips.search');
+    Route::get('/trips/filter-status', [TripTicketController::class, 'filterByStatus'])->name('trips.filterByStatus');
     Route::post('/trips', [TripTicketController::class, 'store'])->name('trips.store');
     Route::post('/trips/{trip}/transition', [TripTicketController::class, 'transition'])->name('trips.transition');
     Route::post('/trips/{trip}', [TripTicketController::class, 'update'])->name('trips.update');
     Route::post('/trips/{trip}/delete', [TripTicketController::class, 'destroy'])->name('trips.destroy');
     Route::post('/trips/{trip}/archive', [TripTicketController::class, 'archive'])->name('trips.archive');
     Route::post('/trips/{trip}/unarchive', [TripTicketController::class, 'unarchive'])->name('trips.unarchive');
-
+    
     // Maintenance
     Route::get('/maintenance', [MaintenanceRecordController::class, 'index'])->name('maintenance.index');
+    Route::get('/maintenance/search', [MaintenanceRecordController::class, 'search'])->name('maintenance.search');
+    Route::get('/maintenance/filter-status', [MaintenanceRecordController::class, 'filterByStatus'])->name('maintenance.filterStatus');
     Route::post('/maintenance', [MaintenanceRecordController::class, 'store'])->name('maintenance.store');
     Route::post('/maintenance/{record}/transition', [MaintenanceRecordController::class, 'transition'])->name('maintenance.transition');
     Route::post('/maintenance/{record}', [MaintenanceRecordController::class, 'update'])->name('maintenance.update');

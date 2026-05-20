@@ -150,8 +150,20 @@ class DriverController extends Controller
             }
 
             $driver = Driver::findOrFail($id);
-            $driver->update(['is_archived' => true]);
 
+            // Block archiving if driver is tied to any active trip ticket
+            $activeTrip = \App\Models\TripTicket::where('driver_id', $driver->id)
+                ->whereIn('status', ['Draft', 'In-Transit'])
+                ->where('is_archived', false)
+                ->first();
+
+            if ($activeTrip) {
+                return response()->json([
+                    'message' => "This driver cannot be archived because they are currently assigned to trip ticket \"{$activeTrip->trip_no}\" with status \"{$activeTrip->status}\". Please cancel that trip ticket first.",
+                ], 422);
+            }
+
+            $driver->update(['is_archived' => true]);
             $this->writeLog('archived', 'driver', $driver->id, $driver->full_name, null, null, null, $request);
 
             return response()->json(['message' => 'Driver archived successfully.']);
@@ -193,44 +205,51 @@ class DriverController extends Controller
         }
     }
 
-    public function search(Request $request)
+    public function search(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
-            $query = $request->get('q');
+            $query = trim($request->get('q', ''));
+            if ($query === '') {
+                return response()->json(['message' => 'Search query cannot be empty.'], 422);
+            }
             $drivers = Driver::where('is_archived', false)
                 ->where(function ($q) use ($query) {
-                    $q->where('full_name', 'like', "%{$query}%")
-                      ->orWhere('phone_number', 'like', "%{$query}%")
-                      ->orWhere('license_number', 'like', "%{$query}%");
-                })
-                ->get();
-            return response()->json($drivers);
+                    $q->where('full_name',      'like', "%{$query}%")
+                    ->orWhere('phone_number', 'like', "%{$query}%")
+                    ->orWhere('license_number','like', "%{$query}%");
+                })->get();
+            if ($drivers->isEmpty()) {
+                return response()->json(['message' => "No drivers found matching \"{$query}\".", 'data' => []], 404);
+            }
+            return response()->json(['data' => $drivers], 200);
         } catch (\Exception $e) {
             Log::error('Driver search failed', ['query' => $request->get('q'), 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Search failed. Please try again.'], 500);
         }
     }
 
-    public function filterByStatus(Request $request)
+    public function filterByStatus(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
-            $statuses = $request->get('statuses', []);
+            $statuses      = $request->query('statuses', []);
+            $validStatuses = ['Available', 'Covering'];
+            if (!empty($statuses)) {
+                $invalid = array_diff($statuses, $validStatuses);
+                if (!empty($invalid)) {
+                    return response()->json([
+                        'message' => 'Invalid status value(s) provided.',
+                        'errors'  => ['statuses' => ['Allowed values: Available, Covering.']],
+                    ], 422);
+                }
+            }
             $drivers = Driver::where('is_archived', false)
                 ->when(!empty($statuses), fn($q) => $q->whereIn('status', $statuses))
-                ->withCount(['trips as total_trips_count'])
-                ->withSum(['trips as total_revenue' => function ($q) {
-                    $q->where('status', 'Completed')->whereNotNull('amount');
-                }], 'amount')
-                ->get()
-                ->map(fn($d) => [
-                    'id'                => $d->id,
-                    'full_name'         => $d->full_name,
-                    'status'            => $d->status,
-                    'assigned_truck'    => $d->assigned_truck ?? '—',  // ← use the string column directly
-                    'total_trips_count' => $d->total_trips_count,
-                    'total_revenue'     => $d->total_revenue ?? 0,
-                ]);
-            return response()->json($drivers);
+                ->get();
+            if ($drivers->isEmpty()) {
+                $label = !empty($statuses) ? implode(', ', $statuses) : 'any status';
+                return response()->json(['message' => "No drivers found for status: {$label}.", 'data' => []], 404);
+            }
+            return response()->json(['data' => $drivers], 200);
         } catch (\Exception $e) {
             Log::error('Driver filter by status failed', ['statuses' => $request->get('statuses'), 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Filter failed. Please try again.'], 500);

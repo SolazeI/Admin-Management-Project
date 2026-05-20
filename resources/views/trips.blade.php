@@ -51,6 +51,22 @@
         </div>
     </div>
 
+    {{-- ── Server error banner (shown by JS) ──────────────────────────── --}}
+    <div id="tripServerError" style="
+        display:none; margin-bottom:12px; padding:12px 16px;
+        background:#fef2f2; border:1px solid #fca5a5; border-radius:10px;
+        display:none; align-items:flex-start; gap:10px;">
+        <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; flex-shrink:0; margin-top:1px;">error</span>
+        <div style="flex:1;">
+            <p id="tripServerErrorText" style="margin:0; font-size:13px; color:#dc2626; font-weight:600;"></p>
+            <p id="tripServerErrorSub"  style="margin:4px 0 0; font-size:12px; color:#b91c1c;"></p>
+        </div>
+        <button onclick="hideTripServerError()" style="
+            background:none; border:none; cursor:pointer; padding:0; color:#dc2626;">
+            <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
+    </div>
+
     {{-- ── Tickets Table ─────────────────────────────────────────────── --}}
     <div class="drivers-section">
         <h2 class="section-title">All Trip Tickets</h2>
@@ -142,8 +158,14 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="no-data">No trip tickets yet.</td></tr>
+                        <tr id="tripNoDataRow">
+                            <td colspan="8" class="no-data">No trip tickets yet.</td>
+                        </tr>
                     @endforelse
+                    {{-- JS injects this when search/filter returns empty --}}
+                    <tr id="tripEmptyStateRow" style="display:none;">
+                        <td colspan="8" class="no-data" id="tripEmptyStateMsg">No results found.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>

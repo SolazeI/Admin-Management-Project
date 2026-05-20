@@ -77,6 +77,64 @@ function clearPasswordError(errorId) {
     if (el) el.style.display = 'none';
 }
 
+// ── Server Error Banner ───────────────────────────────────
+
+function showTripServerError(message, sub = '') {
+    const banner = document.getElementById('tripServerError');
+    const text   = document.getElementById('tripServerErrorText');
+    const subEl  = document.getElementById('tripServerErrorSub');
+    if (!banner || !text) return;
+    text.textContent = message;
+    if (subEl) subEl.textContent = sub;
+    banner.style.display = 'flex';
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideTripServerError() {
+    const banner = document.getElementById('tripServerError');
+    if (banner) banner.style.display = 'none';
+}
+
+// ── Empty State Row ───────────────────────────────────────
+
+function showTripEmptyState(message) {
+    document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
+        .forEach(r => r.style.display = 'none');
+
+    const emptyRow = document.getElementById('tripEmptyStateRow');
+    const emptyMsg = document.getElementById('tripEmptyStateMsg');
+    const noData   = document.getElementById('tripNoDataRow');
+
+    if (noData)   noData.style.display = 'none';
+    if (emptyMsg) emptyMsg.textContent  = message;
+    if (emptyRow) emptyRow.style.display = '';
+}
+
+function hideTripEmptyState() {
+    const emptyRow = document.getElementById('tripEmptyStateRow');
+    if (emptyRow) emptyRow.style.display = 'none';
+
+    // Restore the "no data" row only if there are no real data rows
+    const hasRows = document.querySelectorAll(
+        '.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)'
+    ).length > 0;
+
+    const noData = document.getElementById('tripNoDataRow');
+    if (noData) noData.style.display = hasRows ? 'none' : '';
+}
+
+// ── HTTP Error Subtitle ───────────────────────────────────
+
+function httpErrorSubtitle(status) {
+    switch (status) {
+        case 403: return 'You do not have permission to perform this action.';
+        case 404: return 'The requested resource could not be found.';
+        case 422: return 'The request contained invalid data. Please check your inputs.';
+        case 500: return 'An unexpected server error occurred. Please try again later.';
+        default:  return `Server responded with status ${status}.`;
+    }
+}
+
 // ── Generic Modal Helpers ─────────────────────────────────
 
 function openModal(id) {
@@ -288,7 +346,10 @@ document.querySelectorAll('.trip-transition-btn').forEach(btn => {
                     if (details) details.open = true;
                     showInlineError(form, [data?.message || 'Transition failed. Please try again.']);
                 } else {
-                    alert(data?.message || 'Transition failed. Please try again.');
+                    showTripServerError(
+                        data?.message || 'Transition failed. Please try again.',
+                        httpErrorSubtitle(response.status)
+                    );
                 }
             }
         } catch (error) {
@@ -475,31 +536,150 @@ document.querySelectorAll('.trip-status-filter').forEach(cb => {
 
 function clearTripFilters() {
     document.querySelectorAll('.trip-status-filter').forEach(cb => cb.checked = true);
+    document.getElementById('tripSearch').value = '';
     applyTripFilters();
 }
 
-// ── Search ────────────────────────────────────────────────
+// ── Search Input ──────────────────────────────────────────
 
-document.getElementById('tripSearch').addEventListener('input', applyTripFilters);
+let _filterDebounce = null;
 
-function applyTripFilters() {
-    const query   = document.getElementById('tripSearch').value.trim().toLowerCase();
-    const checked = Array.from(document.querySelectorAll('.trip-status-filter:checked')).map(cb => cb.value);
+document.getElementById('tripSearch').addEventListener('input', function () {
+    clearTimeout(_filterDebounce);
+    _filterDebounce = setTimeout(applyTripFilters, 300);
+});
 
-    document.querySelectorAll('.drivers-table tbody tr').forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (!cells.length) return;
+// ── Status value → proper cased label ────────────────────
 
-        const truck       = cells[1]?.textContent.toLowerCase() ?? '';
-        const driver      = cells[2]?.textContent.toLowerCase() ?? '';
-        const destination = cells[4]?.textContent.toLowerCase() ?? '';
-        const matchesSearch = !query || truck.includes(query) || driver.includes(query) || destination.includes(query);
+function normalizeStatusValue(value) {
+    const map = {
+        draft:      'Draft',
+        intransit:  'In-Transit',
+        completed:  'Completed',
+        cancelled:  'Cancelled',
+    };
+    return map[value] ?? value;
+}
 
-        const badge  = row.querySelector('.status-badge');
-        const status = Array.from(badge?.classList ?? [])
-            .find(c => c.startsWith('status-') && c !== 'status-badge')
-            ?.replace('status-', '') ?? '';
+// ── Restore all data rows (used before re-filtering) ──────
 
-        row.style.display = (matchesSearch && checked.includes(status)) ? '' : 'none';
-    });
+function restoreAllTripRows() {
+    document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
+        .forEach(r => r.style.display = '');
+}
+
+// ── Main Filter Function ──────────────────────────────────
+
+async function applyTripFilters() {
+    hideTripServerError();
+    hideTripEmptyState();
+    restoreAllTripRows();
+
+    const query = document.getElementById('tripSearch').value.trim();
+
+    const checked = Array.from(
+        document.querySelectorAll('.trip-status-filter:checked')
+    ).map(cb => normalizeStatusValue(cb.value));
+
+    // Nothing checked — short circuit immediately, no round-trip needed
+    if (checked.length === 0) {
+        showTripEmptyState('No statuses selected. Use the filter to choose at least one.');
+        return;
+    }
+
+    // ── No search query: status filter ───────────────────────
+    if (!query) {
+        try {
+            const params = checked.map(s => `statuses[]=${encodeURIComponent(s)}`).join('&');
+            const response = await fetch(`/trips/filter-status?${params}`, {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+            });
+            const data = await response.json().catch(() => null);
+
+            if (response.status === 404) {
+                document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
+                    .forEach(r => r.style.display = 'none');
+                showTripEmptyState(data?.message || `No trip tickets found for: ${checked.join(', ')}.`);
+                return;
+            }
+
+            if (!response.ok) {
+                showTripServerError(data?.message || 'Filter failed.', httpErrorSubtitle(response.status));
+                return;
+            }
+
+            const resultIds = new Set((data.data ?? []).map(t => String(t.id)));
+            let anyVisible = false;
+            document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
+                .forEach(row => {
+                    const visible = resultIds.has(String(row.dataset.tripId ?? ''));
+                    row.style.display = visible ? '' : 'none';
+                    if (visible) anyVisible = true;
+                });
+            if (!anyVisible) {
+                showTripEmptyState(`No trip tickets found for: ${checked.join(', ')}.`);
+            }
+        } catch (err) {
+            console.error('Trip filter error:', err);
+            showTripServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+        }
+        return;
+    }
+
+    // ── Search query present ──────────────────────────────────
+    try {
+        const response = await fetch(`/trips/search?q=${encodeURIComponent(query)}`, {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+        });
+        const data = await response.json().catch(() => null);
+
+        if (response.status === 404) {
+            document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
+                .forEach(r => r.style.display = 'none');
+            showTripEmptyState(data?.message || `No results found for "${query}".`);
+            return;
+        }
+
+        if (response.status === 422) {
+            showTripServerError(data?.message || 'Invalid search input.', httpErrorSubtitle(422));
+            return;
+        }
+
+        if (!response.ok) {
+            showTripServerError(data?.message || 'Search failed.', httpErrorSubtitle(response.status));
+            return;
+        }
+
+        const resultIds = new Set((data.data ?? []).map(t => String(t.id)));
+        let anyVisible = false;
+        document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
+            .forEach(row => {
+                const tripId = String(row.dataset.tripId ?? '');
+                const badge  = row.querySelector('.status-badge');
+                const status = Array.from(badge?.classList ?? [])
+                    .find(c => c.startsWith('status-') && c !== 'status-badge')
+                    ?.replace('status-', '') ?? '';
+                const inSearchResults = resultIds.has(tripId);
+                const inStatusFilter  = Boolean(
+                    checked.find(s => s.toLowerCase().replace(/-/g, '') === status)
+                );
+                const visible = inSearchResults && inStatusFilter;
+                row.style.display = visible ? '' : 'none';
+                if (visible) anyVisible = true;
+            });
+
+        if (!anyVisible) {
+            document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
+                .forEach(r => r.style.display = 'none');
+            const statusLabel = checked.length < 4 ? checked.join(' / ') : null;
+            showTripEmptyState(
+                statusLabel
+                    ? `No "${statusLabel}" trips match "${query}".`
+                    : `No results found for "${query}".`
+            );
+        }
+    } catch (err) {
+        console.error('Trip filter/search error:', err);
+        showTripServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+    }
 }

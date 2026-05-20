@@ -69,6 +69,20 @@
         </div>
     @endif
 
+    <div id="maintServerError" style="
+        display:none; margin-bottom:12px; padding:12px 16px;
+        background:#fef2f2; border:1px solid #fca5a5; border-radius:10px;
+        align-items:flex-start; gap:10px;">
+        <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; flex-shrink:0; margin-top:1px;">error</span>
+        <div style="flex:1;">
+            <p id="maintServerErrorText" style="margin:0; font-size:13px; color:#dc2626; font-weight:600;"></p>
+            <p id="maintServerErrorSub"  style="margin:4px 0 0; font-size:12px; color:#b91c1c;"></p>
+        </div>
+        <button onclick="hideMaintServerError()" style="background:none; border:none; cursor:pointer; padding:0; color:#dc2626;">
+            <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
+    </div>
+
     {{-- ── Records Table ─────────────────────────────────────────────── --}}
     <div class="drivers-section">
         <h2 class="section-title">Maintenance Records ({{ $records->count() }})</h2>
@@ -87,7 +101,8 @@
                 </thead>
                 <tbody>
                     @forelse ($records as $rec)
-                        <tr>
+                        <tr data-maint-id="{{ $rec->id }}"
+                        data-status="{{ strtolower(str_replace(['-',' '], '', $rec->status)) }}">
                             <td style="font-weight:600;">{{ $rec->truck->truck_code ?? '—' }}</td>
                             <td>{{ $rec->issue_description }}</td>
                             <td>{{ $rec->start_date ?? '—' }}</td>
@@ -172,6 +187,9 @@
                     @empty
                         <tr><td colspan="7" class="no-data">No maintenance records yet.</td></tr>
                     @endforelse
+                    <tr id="maintEmptyStateRow" style="display:none;">
+                        <td colspan="7" class="no-data" id="maintEmptyStateMsg">No results found.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>

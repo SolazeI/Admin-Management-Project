@@ -22,7 +22,7 @@
             </button>
             <div class="search-wrapper">
                 <span class="material-symbols-outlined search-icon">search</span>
-                <input type="text" class="search-input" id="searchInput" placeholder="Find Driver">
+                <input type="text" class="search-input" id="searchInput" placeholder="Find Driver" autocomplete="off">
             </div>
             <div style="position:relative;">
                 <button class="btn btn-filter" id="filterBtn">
@@ -53,6 +53,21 @@
         </div>
     </div>
 
+    {{-- Server Error Banner --}}
+    <div id="driverServerError" style="
+        display:none; margin-bottom:12px; padding:12px 16px;
+        background:#fef2f2; border:1px solid #fca5a5; border-radius:10px;
+        align-items:flex-start; gap:10px;">
+        <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; flex-shrink:0; margin-top:1px;">error</span>
+        <div style="flex:1;">
+            <p id="driverServerErrorText" style="margin:0; font-size:13px; color:#dc2626; font-weight:600;"></p>
+            <p id="driverServerErrorSub"  style="margin:4px 0 0; font-size:12px; color:#b91c1c;"></p>
+        </div>
+        <button onclick="hideDriverServerError()" style="background:none; border:none; cursor:pointer; padding:0; color:#dc2626;">
+            <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
+    </div>
+
     <div class="drivers-section">
         <h2 class="section-title">All Drivers</h2>
         <div class="table-container">
@@ -69,7 +84,9 @@
                 </thead>
                 <tbody id="driversTableBody">
                     @forelse($drivers ?? [] as $driver)
-                        <tr>
+                        <tr data-driver-row
+                            data-driver-id="{{ $driver->id }}"
+                            data-status="{{ strtolower(str_replace(['-',' '], '', $driver->status)) }}">
                             <td>
                                 <span class="material-symbols-outlined driver-icon">person</span>
                                 {{ $driver->full_name }}
@@ -155,7 +172,6 @@
                         </div>
                     </div>
 
-                    {{-- Error Box --}}
                     <div id="addDriverError" style="
                         display:none; margin-top:14px; padding:12px 14px;
                         background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
@@ -287,7 +303,6 @@
                         </div>
                     </div>
 
-                    {{-- Error Box --}}
                     <div id="editDriverError" style="
                         display:none; margin-top:14px; padding:12px 14px;
                         background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
@@ -369,7 +384,7 @@
                 <input type="password" class="password-input" id="adminPassword" placeholder="Admin password">
                 <p id="archivePasswordError" style="
                     display:none; margin-top:8px; font-size:13px; color:#dc2626;
-                    display:flex; align-items:center; gap:6px;">
+                    align-items:center; gap:6px;">
                     <span class="material-symbols-outlined" style="font-size:16px;">error</span>
                     <span id="archivePasswordErrorText"></span>
                 </p>
@@ -410,7 +425,7 @@
                 <input type="password" class="password-input" id="adminPasswordUnarchive" placeholder="Admin password">
                 <p id="unarchivePasswordError" style="
                     display:none; margin-top:8px; font-size:13px; color:#dc2626;
-                    display:flex; align-items:center; gap:6px;">
+                    align-items:center; gap:6px;">
                     <span class="material-symbols-outlined" style="font-size:16px;">error</span>
                     <span id="unarchivePasswordErrorText"></span>
                 </p>

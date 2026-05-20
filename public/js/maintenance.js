@@ -236,7 +236,10 @@ function initializeEventListeners() {
     // Search
     const maintSearch = document.getElementById('maintSearch');
     if (maintSearch) {
-        maintSearch.addEventListener('input', applyMaintFilters);
+        maintSearch.addEventListener('input', function () {
+            clearTimeout(_maintFilterDebounce);
+            _maintFilterDebounce = setTimeout(applyMaintFilters, 300);
+        });
     }
 
     // Archived search
@@ -414,37 +417,170 @@ async function handleEditMaintenance(e) {
     }
 }
 
-// ── Filters ───────────────────────────────────────────────
+// ── Server Error Banner ───────────────────────────────────
+function showMaintServerError(message, sub = '') {
+    const banner = document.getElementById('maintServerError');
+    const text   = document.getElementById('maintServerErrorText');
+    const subEl  = document.getElementById('maintServerErrorSub');
+    if (!banner || !text) return;
+    text.textContent = message;
+    if (subEl) subEl.textContent = sub;
+    banner.style.display = 'flex';
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function hideMaintServerError() {
+    const banner = document.getElementById('maintServerError');
+    if (banner) banner.style.display = 'none';
+}
 
-function applyMaintFilters() {
-    const query   = document.getElementById('maintSearch').value.trim().toLowerCase();
+// ── Empty State Row ───────────────────────────────────────
+function showMaintEmptyState(message) {
+    document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
+        .forEach(r => r.style.display = 'none');
+    const emptyRow = document.getElementById('maintEmptyStateRow');
+    const emptyMsg = document.getElementById('maintEmptyStateMsg');
+    if (emptyMsg) emptyMsg.textContent = message;
+    if (emptyRow) emptyRow.style.display = '';
+}
+function hideMaintEmptyState() {
+    const emptyRow = document.getElementById('maintEmptyStateRow');
+    if (emptyRow) emptyRow.style.display = 'none';
+}
+
+// ── HTTP Error Subtitle ───────────────────────────────────
+function httpMaintErrorSubtitle(status) {
+    switch (status) {
+        case 403: return 'You do not have permission to perform this action.';
+        case 404: return 'The requested resource could not be found.';
+        case 422: return 'The request contained invalid data. Please check your inputs.';
+        case 500: return 'An unexpected server error occurred. Please try again later.';
+        default:  return `Server responded with status ${status}.`;
+    }
+}
+
+// ── Status value → proper-cased label ────────────────────
+function normalizeMaintStatusValue(value) {
+    const map = {
+        pending:    'Pending',
+        inprogress: 'In-Progress',
+        completed:  'Completed',
+        cancelled:  'Cancelled',
+    };
+    return map[value] ?? value;
+}
+
+// ── Restore all data rows ─────────────────────────────────
+function restoreAllMaintRows() {
+    document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
+        .forEach(r => r.style.display = '');
+}
+
+// ── Main Filter Function ──────────────────────────────────
+let _maintFilterDebounce = null;
+
+async function applyMaintFilters() {
+    hideMaintServerError();
+    hideMaintEmptyState();
+    restoreAllMaintRows();
+
+    const query   = document.getElementById('maintSearch').value.trim();
     const checked = Array.from(document.querySelectorAll('.maint-status-filter:checked'))
-        .map(cb => cb.value);
+        .map(cb => normalizeMaintStatusValue(cb.value));
 
-    document.querySelectorAll('.drivers-table tbody tr').forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (!cells.length) return;
+    if (checked.length === 0) {
+        showMaintEmptyState('No statuses selected. Use the filter to choose at least one.');
+        return;
+    }
 
-        const truck = cells[0]?.textContent.trim().toLowerCase() ?? '';
-        const issue = cells[1]?.textContent.trim().toLowerCase() ?? '';
-        const notes = cells[4]?.textContent.trim().toLowerCase() ?? '';
+    // ── Status filter only ────────────────────────────────
+    if (!query) {
+        try {
+            const params   = checked.map(s => `statuses[]=${encodeURIComponent(s)}`).join('&');
+            const response = await fetch(`/maintenance/filter-status?${params}`, {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+            });
+            const data = await response.json().catch(() => null);
+            if (response.status === 404) {
+                document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
+                    .forEach(r => r.style.display = 'none');
+                showMaintEmptyState(data?.message || `No maintenance records found for: ${checked.join(', ')}.`);
+                return;
+            }
+            if (!response.ok) {
+                showMaintServerError(data?.message || 'Filter failed.', httpMaintErrorSubtitle(response.status));
+                return;
+            }
+            const resultIds = new Set((data.data ?? []).map(r => String(r.id)));
+            let anyVisible  = false;
+            document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
+                .forEach(row => {
+                    const visible = resultIds.has(String(row.dataset.maintId ?? ''));
+                    row.style.display = visible ? '' : 'none';
+                    if (visible) anyVisible = true;
+                });
+            if (!anyVisible) {
+                showMaintEmptyState(`No maintenance records found for: ${checked.join(', ')}.`);
+            }
+        } catch (err) {
+            console.error('Maintenance filter error:', err);
+            showMaintServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+        }
+        return;
+    }
 
-        const matchesSearch = !query
-            || truck.includes(query)
-            || issue.includes(query)
-            || notes.includes(query);
-
-        const badge  = row.querySelector('.status-badge');
-        const status = Array.from(badge?.classList ?? [])
-            .find(c => c.startsWith('status-') && c !== 'status-badge')
-            ?.replace('status-', '') ?? '';
-
-        row.style.display = (matchesSearch && checked.includes(status)) ? '' : 'none';
-    });
+    // ── Search + status filter ────────────────────────────
+    try {
+        const response = await fetch(`/maintenance/search?q=${encodeURIComponent(query)}`, {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+        });
+        const data = await response.json().catch(() => null);
+        if (response.status === 404) {
+            document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
+                .forEach(r => r.style.display = 'none');
+            showMaintEmptyState(data?.message || `No results found for "${query}".`);
+            return;
+        }
+        if (response.status === 422) {
+            showMaintServerError(data?.message || 'Invalid search input.', httpMaintErrorSubtitle(422));
+            return;
+        }
+        if (!response.ok) {
+            showMaintServerError(data?.message || 'Search failed.', httpMaintErrorSubtitle(response.status));
+            return;
+        }
+        const resultIds = new Set((data.data ?? []).map(r => String(r.id)));
+        let anyVisible  = false;
+        document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
+            .forEach(row => {
+                const maintId       = String(row.dataset.maintId ?? '');
+                const rowStatus     = row.dataset.status ?? '';
+                const inSearch      = resultIds.has(maintId);
+                const inStatusFilter = Boolean(
+                    checked.find(s => s.toLowerCase().replace(/-/g, '') === rowStatus)
+                );
+                const visible = inSearch && inStatusFilter;
+                row.style.display = visible ? '' : 'none';
+                if (visible) anyVisible = true;
+            });
+        if (!anyVisible) {
+            document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
+                .forEach(r => r.style.display = 'none');
+            const statusLabel = checked.length < 4 ? checked.join(' / ') : null;
+            showMaintEmptyState(
+                statusLabel
+                    ? `No "${statusLabel}" records match "${query}".`
+                    : `No results found for "${query}".`
+            );
+        }
+    } catch (err) {
+        console.error('Maintenance filter/search error:', err);
+        showMaintServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+    }
 }
 
 function clearMaintFilters() {
     document.querySelectorAll('.maint-status-filter').forEach(cb => cb.checked = true);
+    document.getElementById('maintSearch').value = '';
     applyMaintFilters();
 }
 

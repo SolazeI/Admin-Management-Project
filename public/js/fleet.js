@@ -5,6 +5,33 @@ function getCsrf() {
         || '';
 }
 
+// ── Notice Line ───────────────────────────────────────────
+
+function showNoticeError(message) {
+    let notice = document.getElementById('fleetNoticeError');
+
+    if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'fleetNoticeError';
+        notice.className = 'notice-line';
+        notice.style.cssText = 'border-left-color:#dc2626; background:#fef2f2; color:#991b1b; margin-bottom:14px;';
+
+        // Insert it right after the content-header divider
+        const header = document.querySelector('.content-header.app-divider');
+        header.insertAdjacentElement('afterend', notice);
+    }
+
+    notice.textContent = message;
+    notice.style.display = '';
+    notice.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Auto-dismiss after 6 seconds
+    clearTimeout(notice._dismissTimer);
+    notice._dismissTimer = setTimeout(() => {
+        notice.style.display = 'none';
+    }, 6000);
+}
+
 // ── Error Helpers ─────────────────────────────────────────
 
 function showFormError(boxId, listId, errors) {
@@ -85,6 +112,13 @@ function closeFleetModal(id = 'addFleetModal') {
     if (id === 'addFleetModal') {
         document.getElementById('addFleetForm').reset();
         clearFormError('addFleetError');
+    }
+
+    if (id === 'deleteTruckModal2') {
+        document.getElementById('deleteTruckPassword').value = '';
+        const errEl = document.getElementById('deleteTruckPasswordError');
+        if (errEl) errEl.style.display = 'none';
+        pendingDeleteId = null;
     }
 }
 
@@ -197,7 +231,6 @@ document.querySelectorAll('.fleet-edit-form').forEach(form => {
 });
 
 // ── Delete Truck ──────────────────────────────────────────
-
 let pendingDeleteId = null;
 
 function confirmDeleteTruck(truckId, truckCode) {
@@ -206,8 +239,32 @@ function confirmDeleteTruck(truckId, truckCode) {
     document.getElementById('deleteTruckModal1').classList.add('show');
 }
 
-async function proceedToDeleteTruck() {
-    if (!pendingDeleteId) return;
+function proceedToDeleteTruckPassword() {
+    closeFleetModal('deleteTruckModal1');
+
+    // Reset password field and error before opening
+    document.getElementById('deleteTruckPassword').value = '';
+    const errEl = document.getElementById('deleteTruckPasswordError');
+    if (errEl) errEl.style.display = 'none';
+
+    document.getElementById('deleteTruckModal2').classList.add('show');
+
+    // Auto-focus the password input
+    setTimeout(() => document.getElementById('deleteTruckPassword').focus(), 100);
+}
+
+async function confirmTruckDeleteAction() {
+    const password = document.getElementById('deleteTruckPassword').value.trim();
+    const errEl    = document.getElementById('deleteTruckPasswordError');
+    const errText  = document.getElementById('deleteTruckPasswordErrorText');
+
+    if (!password) {
+        errText.textContent = 'Please enter the admin password.';
+        errEl.style.display = 'flex';
+        return;
+    }
+
+    errEl.style.display = 'none';
 
     try {
         const response = await fetch(`/fleet/${pendingDeleteId}/delete`, {
@@ -217,49 +274,118 @@ async function proceedToDeleteTruck() {
                 'Accept':       'application/json',
                 'X-CSRF-TOKEN': getCsrf(),
             },
+            body: JSON.stringify({ password }),
         });
 
         if (response.ok) {
-            closeFleetModal('deleteTruckModal1');
+            closeFleetModal('deleteTruckModal2');
             location.reload();
         } else {
             const data = await response.json().catch(() => null);
-            closeFleetModal('deleteTruckModal1');
 
-            // Surface the error in the relevant card's edit panel
-            const card = document.querySelector(`.fleet-card[data-id="${pendingDeleteId}"]`);
-            if (card) {
-                const details = card.querySelector('details');
-                const form    = card.querySelector('.fleet-edit-form');
-                if (details && form) {
-                    details.open = true;
-                    showInlineError(form, [data?.message || 'Could not delete this truck. Please try again.']);
-                }
+            if (response.status === 403) {
+                // Wrong password — stay on modal, show inline error
+                errText.textContent = data?.message || 'Incorrect admin password.';
+                errEl.style.display = 'flex';
+                document.getElementById('deleteTruckPassword').value = '';
+                document.getElementById('deleteTruckPassword').focus();
+                return;
             }
+
+            // 422 / 404 / 500 — close modal, show notice line
+            closeFleetModal('deleteTruckModal2');
+            showNoticeError(data?.message || 'Could not delete this truck. Please try again.');
         }
     } catch (error) {
         console.error('Error deleting truck:', error);
-        closeFleetModal('deleteTruckModal1');
+        errText.textContent = 'Unable to connect to the server. Please try again.';
+        errEl.style.display = 'flex';
     } finally {
-        pendingDeleteId = null;
+        if (!document.getElementById('deleteTruckModal2').classList.contains('show')) {
+            pendingDeleteId = null;
+        }
     }
 }
 
-// ── Search ────────────────────────────────────────────────
-
-document.getElementById('truckSearch').addEventListener('input', applyFilters);
-
-// ── Filter Panel toggle ───────────────────────────────────
-
-const filterBtn   = document.getElementById('filterBtn');
-const filterPanel = document.getElementById('filterPanel');
-
-filterBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isOpen = filterPanel.style.display === 'block';
-    filterPanel.style.display = isOpen ? 'none' : 'block';
+// Allow Enter key to confirm from the password field
+document.getElementById('deleteTruckPassword').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') confirmTruckDeleteAction();
 });
 
+// Close on backdrop click
+document.getElementById('deleteTruckModal2').addEventListener('click', function (e) {
+    if (e.target === this) closeFleetModal('deleteTruckModal2');
+});
+
+// ── Search ────────────────────────────────────────────────
+// ── Server Error Banner ───────────────────────────────────
+function showFleetServerError(message, sub = '') {
+    const banner = document.getElementById('fleetServerError');
+    const text   = document.getElementById('fleetServerErrorText');
+    const subEl  = document.getElementById('fleetServerErrorSub');
+    if (!banner || !text) return;
+    text.textContent = message;
+    if (subEl) subEl.textContent = sub;
+    banner.style.display = 'flex';
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function hideFleetServerError() {
+    const banner = document.getElementById('fleetServerError');
+    if (banner) banner.style.display = 'none';
+}
+
+// ── Empty State ───────────────────────────────────────────
+function showFleetEmptyState(message) {
+    document.querySelectorAll('.fleet-card').forEach(c => c.style.display = 'none');
+    const el  = document.getElementById('fleetEmptyState');
+    const msg = document.getElementById('fleetEmptyStateMsg');
+    if (msg) msg.textContent = message;
+    if (el)  el.style.display = '';
+}
+function hideFleetEmptyState() {
+    const el = document.getElementById('fleetEmptyState');
+    if (el) el.style.display = 'none';
+}
+
+// ── HTTP Error Subtitle ───────────────────────────────────
+function httpFleetErrorSubtitle(status) {
+    switch (status) {
+        case 422: return 'The request contained invalid data.';
+        case 500: return 'An unexpected server error occurred. Please try again later.';
+        default:  return `Server responded with status ${status}.`;
+    }
+}
+
+// ── Status value → proper-cased label ────────────────────
+function normalizeFleetStatusValue(value) {
+    const map = {
+        available:  'Available',
+        intransit:  'In-Transit',
+        maintenance:'Maintenance',
+        inactive:   'Inactive',
+    };
+    return map[value] ?? value;
+}
+
+// ── Restore all cards ─────────────────────────────────────
+function restoreAllFleetCards() {
+    document.querySelectorAll('.fleet-card').forEach(c => c.style.display = '');
+}
+
+// ── Search (debounced) ────────────────────────────────────
+let _fleetFilterDebounce = null;
+document.getElementById('truckSearch').addEventListener('input', function () {
+    clearTimeout(_fleetFilterDebounce);
+    _fleetFilterDebounce = setTimeout(applyFilters, 300);
+});
+
+// ── Filter Panel toggle ───────────────────────────────────
+const filterBtn   = document.getElementById('filterBtn');
+const filterPanel = document.getElementById('filterPanel');
+filterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    filterPanel.style.display = filterPanel.style.display === 'block' ? 'none' : 'block';
+});
 document.addEventListener('click', (e) => {
     if (!filterPanel.contains(e.target) && e.target !== filterBtn) {
         filterPanel.style.display = 'none';
@@ -267,35 +393,105 @@ document.addEventListener('click', (e) => {
 });
 
 // ── Checkboxes ────────────────────────────────────────────
-
 document.querySelectorAll('.status-filter').forEach(cb => {
     cb.addEventListener('change', applyFilters);
 });
 
 function clearFilters() {
     document.querySelectorAll('.status-filter').forEach(cb => cb.checked = true);
+    document.getElementById('truckSearch').value = '';
     applyFilters();
 }
 
 // ── Core filter logic ─────────────────────────────────────
+async function applyFilters() {
+    hideFleetServerError();
+    hideFleetEmptyState();
+    restoreAllFleetCards();
 
-function applyFilters() {
-    const query = document.getElementById('truckSearch').value.trim().toLowerCase();
-
+    const query   = document.getElementById('truckSearch').value.trim();
     const checked = Array.from(document.querySelectorAll('.status-filter:checked'))
-        .map(cb => cb.value);
+        .map(cb => normalizeFleetStatusValue(cb.value));
 
-    document.querySelectorAll('.fleet-card').forEach(card => {
-        const code   = card.querySelector('.fleet-code')?.textContent.toLowerCase() ?? '';
-        const model  = card.querySelector('.fleet-sub')?.textContent.toLowerCase() ?? '';
-        const status = card.querySelector('.status-badge')?.className
-            .split(' ')
-            .find(c => c.startsWith('status-') && c !== 'status-badge')
-            ?.replace('status-', '') ?? '';
+    if (checked.length === 0) {
+        showFleetEmptyState('No statuses selected. Use the filter to choose at least one.');
+        return;
+    }
 
-        const matchesSearch = !query || code.includes(query) || model.includes(query);
-        const matchesStatus = checked.includes(status);
+    // ── Status filter only ────────────────────────────────
+    if (!query) {
+        try {
+            const params   = checked.map(s => `statuses[]=${encodeURIComponent(s)}`).join('&');
+            const response = await fetch(`/fleet/filter-status?${params}`, {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+            });
+            const data = await response.json().catch(() => null);
+            if (response.status === 404) {
+                document.querySelectorAll('.fleet-card').forEach(c => c.style.display = 'none');
+                showFleetEmptyState(data?.message || `No trucks found for: ${checked.join(', ')}.`);
+                return;
+            }
+            if (!response.ok) {
+                showFleetServerError(data?.message || 'Filter failed.', httpFleetErrorSubtitle(response.status));
+                return;
+            }
+            const resultIds = new Set((data.data ?? []).map(t => String(t.id)));
+            let anyVisible  = false;
+            document.querySelectorAll('.fleet-card').forEach(card => {
+                const visible = resultIds.has(String(card.dataset.fleetId ?? ''));
+                card.style.display = visible ? '' : 'none';
+                if (visible) anyVisible = true;
+            });
+            if (!anyVisible) showFleetEmptyState(`No trucks found for: ${checked.join(', ')}.`);
+        } catch (err) {
+            console.error('Fleet filter error:', err);
+            showFleetServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+        }
+        return;
+    }
 
-        card.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
-    });
+    // ── Search + status filter ────────────────────────────
+    try {
+        const response = await fetch(`/fleet/search?q=${encodeURIComponent(query)}`, {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+        });
+        const data = await response.json().catch(() => null);
+        if (response.status === 404) {
+            document.querySelectorAll('.fleet-card').forEach(c => c.style.display = 'none');
+            showFleetEmptyState(data?.message || `No results found for "${query}".`);
+            return;
+        }
+        if (response.status === 422) {
+            showFleetServerError(data?.message || 'Invalid search input.', httpFleetErrorSubtitle(422));
+            return;
+        }
+        if (!response.ok) {
+            showFleetServerError(data?.message || 'Search failed.', httpFleetErrorSubtitle(response.status));
+            return;
+        }
+        const resultIds = new Set((data.data ?? []).map(t => String(t.id)));
+        let anyVisible  = false;
+        document.querySelectorAll('.fleet-card').forEach(card => {
+            const fleetId        = String(card.dataset.fleetId ?? '');
+            const cardStatus     = card.dataset.status ?? '';
+            const inSearch       = resultIds.has(fleetId);
+            const inStatusFilter = Boolean(
+                checked.find(s => s.toLowerCase().replace(/-/g, '') === cardStatus)
+            );
+            const visible = inSearch && inStatusFilter;
+            card.style.display = visible ? '' : 'none';
+            if (visible) anyVisible = true;
+        });
+        if (!anyVisible) {
+            const statusLabel = checked.length < 4 ? checked.join(' / ') : null;
+            showFleetEmptyState(
+                statusLabel
+                    ? `No "${statusLabel}" trucks match "${query}".`
+                    : `No results found for "${query}".`
+            );
+        }
+    } catch (err) {
+        console.error('Fleet filter/search error:', err);
+        showFleetServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+    }
 }
