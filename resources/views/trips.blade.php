@@ -140,14 +140,12 @@
                                     @endif
 
                                     {{-- Edit panel --}}
-                                    @if (!in_array($trip->status, ['Completed', 'Cancelled']))
                                         <button type="button" class="btn btn-secondary"
                                             style="padding:5px 11px; font-size:12px; gap:4px;"
                                             onclick="openEditTrip({{ $trip->id }})">
                                             <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                                             Edit
                                         </button>
-                                    @endif
                                     <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
                                         onclick="confirmArchiveTrip({{ $trip->id }}, '{{ addslashes($trip->trip_no) }}')">
                                         <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
