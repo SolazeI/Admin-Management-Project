@@ -18,7 +18,7 @@ Route::redirect('/login', '/admin/login');
 Route::get('/admin/login', fn () => view('login'))->name('admin.login');
 Route::post('/admin/login', [AuthController::class, 'authenticate'])->name('admin.login.submit');
 
-Route::middleware('admin')->group(function () {
+Route::middleware(['admin', 'nocache'])->group(function () {
     Route::post('/admin/logout', [AuthController::class, 'logout'])->name('admin.logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/admin', [DriverController::class, 'index'])->name('admin.dashboard');
@@ -69,11 +69,14 @@ Route::middleware('admin')->group(function () {
 
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/driver/search',      [ReportController::class, 'searchDrivers'])->name('reports.driver.search');
+    Route::get('/reports/maintenance/search', [ReportController::class, 'searchMaintenance'])->name('reports.maintenance.search');
     Route::post('/reports/compile', [ReportController::class, 'compile'])->name('reports.compile');
-    Route::get('/reports/{compilation}/download', [ReportController::class, 'download'])->name('reports.download');
-    Route::get('/reports/export/driver/{driver}', [ReportController::class, 'exportDriver'])->name('reports.export.driver');
-    Route::get('/reports/export/maintenance',     [ReportController::class, 'exportMaintenance'])->name('reports.export.maintenance');
-
+    Route::get('/reports/export/driver/{driver}',  [ReportController::class, 'exportDriver'])->name('reports.export.driver');
+    Route::get('/reports/export/maintenance',       [ReportController::class, 'exportMaintenance'])->name('reports.export.maintenance');
+    Route::get('/reports/driver/{driver}/info',     [ReportController::class, 'driverInfo'])->name('reports.driver.info');
+    Route::get('/reports/{compilation}/download',  [ReportController::class, 'download'])->name('reports.download');
+    
     // Activity Logs
     Route::get('/logs', [ActivityLogController::class, 'index'])->name('logs.index');
     Route::get('/logs/{id}', [ActivityLogController::class, 'show'])->name('logs.show');

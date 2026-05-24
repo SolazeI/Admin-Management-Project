@@ -20,7 +20,9 @@ class ReportController extends Controller
         $tripTax   = round($totalRevenue * $taxRate, 2);
         $netProfit = $totalRevenue - ($totalMaintenanceCost + $tripTax);
         $driverTripRecords = Driver::where('is_archived', false)
-            ->withCount(['trips as total_trips_count'])
+            ->withCount(['trips as total_trips_count' => function ($q) {
+                $q->where('status', 'Completed');
+            }])
             ->withSum(['trips as total_revenue' => function ($q) {
                 $q->where('status', 'Completed')->whereNotNull('amount');
             }], 'amount')
@@ -169,5 +171,86 @@ class ReportController extends Controller
         );
 
         return view('exports.maintenance-report', compact('records', 'totalCost', 'referenceNo'));
+    }
+
+    public function driverInfo(Driver $driver)
+    {
+        $driver->loadCount(['trips as total_trips_count']);
+        $driver->loadSum(['trips as total_revenue' => function ($q) {
+            $q->where('status', 'Completed')->whereNotNull('amount');
+        }], 'amount');
+        $driver->load(['trips' => function ($q) {
+            $q->with('truck')->orderByDesc('created_at')->limit(100);
+        }]);
+
+        $referenceNo = 'DR-' . strtoupper(substr(md5($driver->id . now()->format('Ymd')), 0, 8));
+
+        return response()->json(array_merge(
+            $driver->toArray(),
+            ['ref_no' => $referenceNo]
+        ));
+    }
+
+    public function searchDrivers(Request $request)
+    {
+        $query = trim($request->get('q', ''));
+        if ($query === '') {
+            return response()->json(['message' => 'Search query cannot be empty.'], 422);
+        }
+
+        $drivers = Driver::where('is_archived', false)
+            ->where(function ($q) use ($query) {
+                $q->where('first_name', 'like', "%{$query}%")
+                ->orWhere('last_name',  'like', "%{$query}%")
+                ->orWhere('license_number', 'like', "%{$query}%")
+                ->orWhere('phone_number',   'like', "%{$query}%");
+            })
+            ->withCount(['trips as total_trips_count' => function ($q) {
+                $q->where('status', 'Completed');
+            }])
+            ->orderBy('first_name')
+            ->get();
+
+        if ($drivers->isEmpty()) {
+            return response()->json(['message' => "No drivers found matching \"{$query}\".", 'data' => []], 404);
+        }
+
+        return response()->json(['data' => $drivers]);
+    }
+
+    public function searchMaintenance(Request $request)
+    {
+        $query    = trim($request->get('q', ''));
+        $statuses = $request->query('statuses', []);
+
+        $statusMap = [
+            'pending'    => 'Pending',
+            'inprogress' => 'In-Progress',
+            'completed'  => 'Completed',
+            'cancelled'  => 'Cancelled',
+        ];
+        $mappedStatuses = collect($statuses)
+            ->map(fn($s) => $statusMap[$s] ?? null)
+            ->filter()
+            ->values()
+            ->toArray();
+
+        $records = MaintenanceRecord::with('truck')
+            ->when($query !== '', function ($q) use ($query) {
+                $q->where(function ($q2) use ($query) {
+                    $q2->where('issue_description', 'like', "%{$query}%")
+                    ->orWhere('notes', 'like', "%{$query}%")
+                    ->orWhereHas('truck', fn($t) => $t->where('truck_code', 'like', "%{$query}%"));
+                });
+            })
+            ->when(!empty($mappedStatuses), fn($q) => $q->whereIn('status', $mappedStatuses))
+            ->orderByDesc('start_date')
+            ->get();
+
+        if ($records->isEmpty()) {
+            return response()->json(['message' => "No maintenance records match \"{$query}\".", 'data' => []], 404);
+        }
+
+        return response()->json(['data' => $records]);
     }
 }
