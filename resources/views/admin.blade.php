@@ -128,7 +128,7 @@
                 <span class="material-symbols-outlined">person_add</span>
                 <h2>Add New Driver</h2>
             </div>
-            <form id="addDriverForm" enctype="multipart/form-data">
+            <form id="addDriverForm" enctype="multipart/form-data" data-validate="driver" novalidate>
                 <div class="modal-body">
                     <div class="form-row">
                         <div class="form-group">
@@ -137,7 +137,7 @@
                         </div>
                         <div class="form-group">
                             <label>Phone Number <span class="required">*</span></label>
-                            <input type="text" name="phone_number" required>
+                            <input type="text" name="phone_number" inputmode="numeric" maxlength="11" autocomplete="tel">
                         </div>
                     </div>
                     <div class="form-row">
@@ -149,8 +149,13 @@
                             <label>License Expiry Date <span class="required">*</span></label>
                             <div class="date-input-wrapper">
                                 <input type="text" name="license_expiry_date" id="addLicenseExpiry"
-                                    placeholder="mm/dd/yyyy" required>
-                                <span class="material-symbols-outlined date-icon">calendar_today</span>
+                                    placeholder="mm/dd/yyyy" maxlength="10" autocomplete="off">
+                                <input type="date" id="addLicenseExpiryPicker" class="date-picker-native"
+                                    tabindex="-1" aria-hidden="true">
+                                <button type="button" class="date-icon-btn" id="addLicenseExpiryCalendarBtn"
+                                    aria-label="Open calendar" title="Pick a date">
+                                    <span class="material-symbols-outlined">calendar_today</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -160,7 +165,7 @@
                     </div>
                     <div class="form-group" style="margin-bottom:14px;">
                         <label>Emergency Contact <span class="required">*</span></label>
-                        <input type="text" name="emergency_contact" required>
+                        <input type="text" name="emergency_contact" inputmode="numeric" maxlength="11" autocomplete="tel">
                     </div>
                     <div class="form-group">
                         <label>File <span class="required">*</span></label>
@@ -253,7 +258,7 @@
                 <span class="material-symbols-outlined">edit</span>
                 <h2>Edit Driver Info</h2>
             </div>
-            <form id="editDriverForm" enctype="multipart/form-data">
+            <form id="editDriverForm" enctype="multipart/form-data" data-validate="driver" novalidate>
                 <input type="hidden" name="driver_id" id="editDriverId">
                 <input type="hidden" name="current_file_path" id="currentFilePath">
                 <div class="modal-body">
@@ -264,7 +269,7 @@
                         </div>
                         <div class="form-group">
                             <label>Phone Number <span class="required">*</span></label>
-                            <input type="text" name="phone_number" id="editPhoneNumber" required>
+                            <input type="text" name="phone_number" id="editPhoneNumber" inputmode="numeric" maxlength="11" autocomplete="tel">
                         </div>
                     </div>
                     <div class="form-row">
@@ -276,8 +281,13 @@
                             <label>License Expiry Date <span class="required">*</span></label>
                             <div class="date-input-wrapper">
                                 <input type="text" name="license_expiry_date" id="editLicenseExpiry"
-                                    placeholder="mm/dd/yyyy" required>
-                                <span class="material-symbols-outlined date-icon">calendar_today</span>
+                                    placeholder="mm/dd/yyyy" maxlength="10" autocomplete="off">
+                                <input type="date" id="editLicenseExpiryPicker" class="date-picker-native"
+                                    tabindex="-1" aria-hidden="true">
+                                <button type="button" class="date-icon-btn" id="editLicenseExpiryCalendarBtn"
+                                    aria-label="Open calendar" title="Pick a date">
+                                    <span class="material-symbols-outlined">calendar_today</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -287,7 +297,7 @@
                     </div>
                     <div class="form-group" style="margin-bottom:14px;">
                         <label>Emergency Contact <span class="required">*</span></label>
-                        <input type="text" name="emergency_contact" id="editEmergencyContact" required>
+                        <input type="text" name="emergency_contact" id="editEmergencyContact" inputmode="numeric" maxlength="11" autocomplete="tel">
                     </div>
                     <div class="form-group">
                         <label>File</label>

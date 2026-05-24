@@ -16,7 +16,7 @@
                 <span class="material-symbols-outlined">folder</span>
                 Archived
             </button>
-            <button class="btn btn-primary" id="addMaintenanceBtn">
+            <button type="button" class="btn btn-primary" id="addMaintenanceBtn">
                 <span class="material-symbols-outlined">add</span>
                 Add Maintenance Record
             </button>
@@ -202,7 +202,7 @@
                 <span class="material-symbols-outlined">build</span>
                 <h2>Add Maintenance Record</h2>
             </div>
-            <form id="addMaintenanceForm" action="{{ url('/maintenance') }}" method="POST">
+            <form id="addMaintenanceForm" action="{{ url('/maintenance') }}" method="POST" data-validate="standard" novalidate>
                 @csrf
                 <div class="modal-body">
                     <p style="font-size:12px; color:#64748b; margin-bottom:14px; background:#f8fafc; border-radius:7px; padding:8px 12px; border:1px solid #e2e8f0;">
@@ -427,7 +427,7 @@
                 <span class="material-symbols-outlined">edit</span>
                 <h2>Edit Maintenance Record</h2>
             </div>
-            <form id="editMaintenanceForm">
+            <form id="editMaintenanceForm" data-validate="standard" novalidate>
                 @csrf
                 <input type="hidden" id="editMaintId">
                 <div class="modal-body">
@@ -478,5 +478,8 @@
         </div>
     </div>
 
-    <script src="{{ asset('js/maintenance.js') }}"></script>
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('js/maintenance.js') }}"></script>
+@endpush

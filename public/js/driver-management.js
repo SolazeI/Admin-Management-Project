@@ -52,6 +52,8 @@ function clearPasswordError(errorId) {
     if (el) el.style.display = 'none';
 }
 
+const FV = () => window.FormValidation;
+
 // ── CSRF ──────────────────────────────────────────────────
 
 function getCsrf() {
@@ -85,6 +87,7 @@ function initializeEventListeners() {
     const fileUploadArea = document.getElementById('fileUploadArea');
     const fileInput      = document.getElementById('fileInput');
     if (fileUploadArea && fileInput) {
+        initFileUploadAreaDefaults('fileUploadArea');
         fileUploadArea.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', handleFileSelect);
     }
@@ -92,21 +95,13 @@ function initializeEventListeners() {
     const editFileUploadArea = document.getElementById('editFileUploadArea');
     const editFileInput      = document.getElementById('editFileInput');
     if (editFileUploadArea && editFileInput) {
+        initFileUploadAreaDefaults('editFileUploadArea');
         editFileUploadArea.addEventListener('click', () => editFileInput.click());
         editFileInput.addEventListener('change', handleEditFileSelect);
     }
 
-    const addDateInput = document.getElementById('addLicenseExpiry');
-    if (addDateInput) {
-        addDateInput.addEventListener('input', formatDateInput);
-        addDateInput.addEventListener('keypress', restrictDateInput);
-    }
-
-    const editDateInput = document.getElementById('editLicenseExpiry');
-    if (editDateInput) {
-        editDateInput.addEventListener('input', formatDateInput);
-        editDateInput.addEventListener('keypress', restrictDateInput);
-    }
+    FV()?.setupLicenseExpiryField('addLicenseExpiry', 'addLicenseExpiryPicker', 'addLicenseExpiryCalendarBtn');
+    FV()?.setupLicenseExpiryField('editLicenseExpiry', 'editLicenseExpiryPicker', 'editLicenseExpiryCalendarBtn');
 
     const addDriverForm = document.getElementById('addDriverForm');
     if (addDriverForm) {
@@ -154,12 +149,17 @@ function closeModal(modalId) {
         document.body.style.overflow = 'auto';
 
         if (modalId === 'addDriverModal') {
-            document.getElementById('addDriverForm').reset();
+            const form = document.getElementById('addDriverForm');
+            form?.reset();
             clearFormError('addDriverError');
+            FV()?.clearFormFieldNotices(form);
             resetFileUploadUI('fileUploadArea');
         } else if (modalId === 'editDriverModal') {
-            document.getElementById('editDriverForm').reset();
+            const form = document.getElementById('editDriverForm');
+            form?.reset();
             clearFormError('editDriverError');
+            FV()?.clearFormFieldNotices(form);
+            resetFileUploadUI('editFileUploadArea');
         } else if (modalId === 'warningModal2') {
             clearPasswordError('archivePasswordError');
         } else if (modalId === 'warningModal4') {
@@ -231,13 +231,20 @@ async function editDriver(driverId) {
         document.getElementById('editFullName').value          = driver.full_name;
         document.getElementById('editPhoneNumber').value       = driver.phone_number;
         document.getElementById('editLicenseNumber').value     = driver.license_number;
-        document.getElementById('editLicenseExpiry').value     = formatDateForInput(driver.license_expiry_date);
+        const editExpiryInput = document.getElementById('editLicenseExpiry');
+        editExpiryInput.value = formatDateForInput(driver.license_expiry_date);
+        const editExpiryPicker = document.getElementById('editLicenseExpiryPicker');
+        if (editExpiryPicker) {
+            editExpiryPicker.value = FV()?.displayDateToIso(editExpiryInput.value) || '';
+        }
         document.getElementById('editAddress').value           = driver.address;
         document.getElementById('editEmergencyContact').value  = driver.emergency_contact;
         document.getElementById('currentFilePath').value       = driver.file_url || '';
 
         window.currentDriver = driver;
         clearFormError('editDriverError');
+        FV()?.clearFormFieldNotices(document.getElementById('editDriverForm'));
+        resetFileUploadUI('editFileUploadArea');
         openModal('editDriverModal');
     } catch (error) {
         console.error('Error loading driver:', error);
@@ -250,12 +257,16 @@ async function handleAddDriver(e) {
     e.preventDefault();
     clearFormError('addDriverError');
 
+    if (!FV()?.validateDriverForm(e.target)) {
+        showFormError('addDriverError', 'addDriverErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
+
     const fileInput = document.getElementById('fileInput');
     if (!fileInput?.files?.length) {
-        setFileUploadError('fileUploadArea', true);
-        showFormError('addDriverError', 'addDriverErrorList', [
-            'Please upload a driver file before submitting.',
-        ]);
+        setFileUploadError('fileUploadArea', true, 'Please upload a driver file before submitting.');
         return;
     }
     setFileUploadError('fileUploadArea', false);
@@ -303,6 +314,13 @@ async function handleAddDriver(e) {
 async function handleEditDriver(e) {
     e.preventDefault();
     clearFormError('editDriverError');
+
+    if (!FV()?.validateDriverForm(e.target)) {
+        showFormError('editDriverError', 'editDriverErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
 
     const driverId = document.getElementById('editDriverId').value;
     const formData = new FormData(e.target);
@@ -567,8 +585,12 @@ function handleEditFileSelect(e) {
 }
 
 function updateFileUploadUI(areaId, file) {
-    if (!file) return;
+    if (!file) {
+        resetFileUploadUI(areaId);
+        return;
+    }
     const area = document.getElementById(areaId);
+    if (!area) return;
     const icon = area.querySelector('.material-symbols-outlined');
     const text = area.querySelector('p');
     if (icon) { icon.textContent = 'check_circle'; icon.style.color = '#10b981'; }
@@ -576,20 +598,39 @@ function updateFileUploadUI(areaId, file) {
     area.style.borderColor = '#10b981';
 }
 
-function setFileUploadError(areaId, hasError) {
+function setFileUploadError(areaId, hasError, message = 'Please upload a driver file before submitting.') {
     const area = document.getElementById(areaId);
-    if (area) area.classList.toggle('error', hasError);
+    const group = area?.closest('.form-group');
+    if (!group) return;
+    if (hasError) {
+        FV()?.showFieldNotice(group, message);
+    } else {
+        FV()?.clearFieldNotice(group);
+    }
+}
+
+function initFileUploadAreaDefaults(areaId) {
+    const area = document.getElementById(areaId);
+    if (!area) return;
+    if (area.dataset.defaultText && area.dataset.defaultIcon) return;
+    const icon = area.querySelector('.material-symbols-outlined');
+    const text = area.querySelector('p');
+    area.dataset.defaultIcon = icon?.textContent ?? '';
+    area.dataset.defaultText = text?.textContent ?? '';
 }
 
 function resetFileUploadUI(areaId) {
     const area = document.getElementById(areaId);
     if (!area) return;
-    area.classList.remove('error');
     area.style.borderColor = '';
+    const group = area.closest('.form-group');
+    FV()?.clearFieldNotice(group);
     const icon = area.querySelector('.material-symbols-outlined');
     const text = area.querySelector('p');
-    if (icon) { icon.textContent = 'upload_file'; icon.style.color = ''; }
-    if (text) text.textContent = 'Click to upload file';
+    const defaultIcon = area.dataset.defaultIcon || 'upload_file';
+    const defaultText = area.dataset.defaultText || 'Click to upload file';
+    if (icon) { icon.textContent = defaultIcon; icon.style.color = ''; }
+    if (text) text.textContent = defaultText;
 }
 
 function viewDriverFile() {
@@ -605,17 +646,6 @@ function formatDateForInput(dateString) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day   = String(date.getDate()).padStart(2, '0');
     return `${month}/${day}/${date.getFullYear()}`;
-}
-
-function formatDateInput(e) {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length >= 2) value = value.substring(0, 2) + '/' + value.substring(2);
-    if (value.length >= 5) value = value.substring(0, 5) + '/' + value.substring(5, 9);
-    e.target.value = value;
-}
-
-function restrictDateInput(e) {
-    if (!/[0-9]/.test(String.fromCharCode(e.which))) e.preventDefault();
 }
 
 // ── Utilities ─────────────────────────────────────────────

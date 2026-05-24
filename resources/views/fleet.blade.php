@@ -94,7 +94,7 @@
                         Edit Info
                     </summary>
                     <div style="margin-top:10px;">
-                        <form class="fleet-edit-form" data-id="{{ $truck->id }}">
+                        <form class="fleet-edit-form" data-id="{{ $truck->id }}" data-validate="standard" novalidate>
                             @csrf
                             <div>
                                 <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck Code</label>
@@ -179,7 +179,7 @@
                 <span class="material-symbols-outlined">local_shipping</span>
                 <h2>Add New Truck</h2>
             </div>
-            <form id="addFleetForm">
+            <form id="addFleetForm" data-validate="standard" novalidate>
                 @csrf
                 <div class="modal-body">
                     <div class="form-row">

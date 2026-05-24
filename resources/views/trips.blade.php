@@ -179,7 +179,7 @@
                 <h2>Trip Ticket Entry</h2>
             </div>
             <div class="modal-body" style="padding:0;">
-                <form id="addTripForm">
+                <form id="addTripForm" data-validate="standard" novalidate>
                     @csrf
                     <div class="trip-entry-header">Weekly / Monthly Trip Ticket Entry</div>
                     <div class="trip-entry-subtitle">New tickets start as Draft — use the Dispatch button to put them In-Transit</div>
@@ -188,7 +188,7 @@
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Date Issued</label>
                             <input type="date" name="date_issued" class="search-input" style="width:100%;">
                         </div>
-                        <div>
+                        <div class="field-validate-group">
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck <span style="color:#ef4444;">*</span></label>
                             <select name="truck_id" class="search-input" style="width:100%;" required>
                                 <option value="">Select Truck</option>
@@ -197,7 +197,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div>
+                        <div class="field-validate-group">
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Driver <span style="color:#ef4444;">*</span></label>
                             <select name="driver_id" class="search-input" style="width:100%;" required>
                                 <option value="">Select Driver</option>
@@ -432,12 +432,12 @@
                 <span class="material-symbols-outlined">edit</span>
                 <h2>Edit Trip Ticket</h2>
             </div>
-            <form id="editTripForm">
+            <form id="editTripForm" data-validate="standard" novalidate>
                 @csrf
                 <input type="hidden" id="editTripId">
                 <div class="modal-body">
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                        <div>
+                        <div class="field-validate-group">
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Trip No.</label>
                             <input name="trip_no" id="editTripNo" class="search-input" style="width:100%;" required>
                         </div>
@@ -445,7 +445,7 @@
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Date Issued</label>
                             <input type="date" name="date_issued" id="editTripDateIssued" class="search-input" style="width:100%;">
                         </div>
-                        <div>
+                        <div class="field-validate-group">
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck</label>
                             <select name="truck_id" id="editTripTruckId" class="search-input" style="width:100%;" required>
                                 @foreach ($allTrucks as $truck)
@@ -453,7 +453,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div>
+                        <div class="field-validate-group">
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Driver</label>
                             <select name="driver_id" id="editTripDriverId" class="search-input" style="width:100%;" required>
                                 @foreach ($allDrivers as $driver)

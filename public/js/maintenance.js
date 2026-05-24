@@ -1,3 +1,5 @@
+const FV = () => window.FormValidation;
+
 // ── CSRF Token ────────────────────────────────────────────
 
 function getCsrf() {
@@ -84,6 +86,43 @@ function clearPasswordError(errorId) {
     if (el) el.style.display = 'none';
 }
 
+function runFormBubbleValidation(form) {
+    const fv = FV();
+    if (!fv || typeof fv.validateFormBubbles !== 'function') return true;
+    return fv.validateFormBubbles(form);
+}
+
+function mapServerErrorsToForm(form, errors) {
+    if (!form || !errors || typeof errors !== 'object') return;
+    const fv = FV();
+    Object.entries(errors).forEach(([field, messages]) => {
+        const input = form.querySelector(`[name="${field}"]`);
+        const msg = Array.isArray(messages) ? messages[0] : messages;
+        if (input && msg && fv) fv.showFieldNotice(input, msg);
+    });
+}
+
+/** JSON payloads must omit empty optionals — "" fails Laravel nullable|numeric|date. */
+function buildMaintenancePayload(form) {
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(formData.entries());
+    delete payload._token;
+
+    if (!payload.start_date) delete payload.start_date;
+    if (payload.notes === '' || payload.notes == null) delete payload.notes;
+
+    const costRaw = (payload.cost ?? '').toString().trim();
+    if (!costRaw) {
+        delete payload.cost;
+    } else {
+        const cleaned = costRaw.replace(/[^\d.]/g, '');
+        if (!cleaned) delete payload.cost;
+        else payload.cost = cleaned;
+    }
+
+    return payload;
+}
+
 // ── State ─────────────────────────────────────────────────
 
 let _archiveMaintId = null;
@@ -97,6 +136,7 @@ function openEditMaint(id, truckId, startDate, issue, notes, cost) {
     document.getElementById('editMaintNotes').value     = notes;
     document.getElementById('editMaintCost').value      = cost;
     clearFormError('editMaintError');
+    FV()?.clearFormFieldNotices(document.getElementById('editMaintenanceForm'));
     openModal('editMaintenanceModal');
 }
 
@@ -108,18 +148,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function initializeEventListeners() {
 
-    document.getElementById('editMaintenanceForm')?.addEventListener('submit', async function (e) {
+    const addMaintenanceForm = document.getElementById('addMaintenanceForm');
+    if (addMaintenanceForm) {
+        FV()?.setupRequiredBubbles(addMaintenanceForm);
+        addMaintenanceForm.addEventListener('submit', handleAddMaintenance);
+    }
+
+    const editMaintenanceForm = document.getElementById('editMaintenanceForm');
+    if (editMaintenanceForm) FV()?.setupRequiredBubbles(editMaintenanceForm);
+
+    editMaintenanceForm?.addEventListener('submit', async function (e) {
         e.preventDefault();
         clearFormError('editMaintError');
 
-        const id      = document.getElementById('editMaintId').value;
-        const payload = {
-            truck_id:          document.getElementById('editMaintTruckId').value,
-            start_date:        document.getElementById('editMaintStartDate').value,
-            issue_description: document.getElementById('editMaintIssue').value,
-            notes:             document.getElementById('editMaintNotes').value,
-            cost:              document.getElementById('editMaintCost').value,
-        };
+        if (!runFormBubbleValidation(this)) {
+            showFormError('editMaintError', 'editMaintErrorList', [
+                'Please fix the highlighted fields before submitting.',
+            ]);
+            return;
+        }
+
+        const id = document.getElementById('editMaintId').value;
+        const payload = buildMaintenancePayload(this);
 
         const btn = this.querySelector('[type="submit"]');
         if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
@@ -140,9 +190,14 @@ function initializeEventListeners() {
                 location.reload();
             } else {
                 const data = await response.json().catch(() => null);
-                showFormError('editMaintError', 'editMaintErrorList',
-                    data?.errors ? Object.values(data.errors).flat() : [data?.message || 'Something went wrong.']
-                );
+                if (data?.errors) {
+                    mapServerErrorsToForm(this, data.errors);
+                    showFormError('editMaintError', 'editMaintErrorList', data.errors);
+                } else {
+                    showFormError('editMaintError', 'editMaintErrorList', [
+                        data?.message || 'Something went wrong.',
+                    ]);
+                }
             }
         } catch (err) {
             showFormError('editMaintError', 'editMaintErrorList', ['Unable to connect. Please try again.']);
@@ -164,12 +219,6 @@ function initializeEventListeners() {
     const archivedMaintenanceBtn = document.getElementById('archivedMaintenanceBtn');
     if (archivedMaintenanceBtn) {
         archivedMaintenanceBtn.addEventListener('click', () => openModal('archivedMaintenanceModal'));
-    }
-
-    // Add form submit
-    const addMaintenanceForm = document.getElementById('addMaintenanceForm');
-    if (addMaintenanceForm) {
-        addMaintenanceForm.addEventListener('submit', handleAddMaintenance);
     }
 
     // ── Transition forms (Start / Complete / Cancel) ──────
@@ -308,8 +357,10 @@ function closeModal(modalId) {
         document.body.style.overflow = 'auto';
 
         if (modalId === 'addMaintenanceModal') {
-            document.getElementById('addMaintenanceForm').reset();
+            const form = document.getElementById('addMaintenanceForm');
+            form?.reset();
             clearFormError('addMaintError');
+            FV()?.clearFormFieldNotices(form);
         } else if (modalId === 'maintArchiveWarning2') {
             document.getElementById('maintArchivePassword').value = '';
             clearPasswordError('maintArchivePasswordError');
@@ -317,8 +368,10 @@ function closeModal(modalId) {
             document.getElementById('maintDeletePassword').value = '';
             clearPasswordError('maintDeletePasswordError');
         } else if (modalId === 'editMaintenanceModal') {
-            document.getElementById('editMaintenanceForm').reset();
+            const form = document.getElementById('editMaintenanceForm');
+            form?.reset();
             clearFormError('editMaintError');
+            FV()?.clearFormFieldNotices(form);
         }
     }
 }
@@ -333,9 +386,14 @@ async function handleAddMaintenance(e) {
     e.preventDefault();
     clearFormError('addMaintError');
 
-    const formData = new FormData(e.target);
-    const payload  = Object.fromEntries(formData.entries());
-    delete payload._token;
+    if (!runFormBubbleValidation(e.target)) {
+        showFormError('addMaintError', 'addMaintErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
+
+    const payload = buildMaintenancePayload(e.target);
 
     try {
         const response = await fetch(e.target.action, {
@@ -354,6 +412,7 @@ async function handleAddMaintenance(e) {
         } else {
             const data = await response.json().catch(() => null);
             if (data?.errors) {
+                mapServerErrorsToForm(e.target, data.errors);
                 showFormError('addMaintError', 'addMaintErrorList', data.errors);
             } else {
                 showFormError('addMaintError', 'addMaintErrorList', [

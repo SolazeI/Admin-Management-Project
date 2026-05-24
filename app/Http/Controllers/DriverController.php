@@ -38,11 +38,11 @@ class DriverController extends Controller
         try {
             $validated = $request->validate([
                 'full_name'           => 'required|string|max:255',
-                'phone_number'        => 'required|digits_between:7,15',
+                'phone_number'        => 'required|digits_between:7,11',
                 'license_number'      => 'required|string|max:50',
                 'license_expiry_date' => 'required|date',
                 'address'             => 'required|string|max:500',
-                'emergency_contact'   => 'required|digits_between:7,15',
+                'emergency_contact'   => 'required|digits_between:7,11',
                 'file'                => 'required|file|max:10240|mimes:pdf,doc,docx,jpg,jpeg,png',
             ]);
 
@@ -97,11 +97,11 @@ class DriverController extends Controller
 
             $validated = $request->validate([
                 'full_name'           => 'required|string|max:255',
-                'phone_number'        => 'required|digits_between:7,15',
+                'phone_number'        => 'required|digits_between:7,11',
                 'license_number'      => 'required|string|max:50',
                 'license_expiry_date' => 'required|date',
                 'address'             => 'required|string|max:500',
-                'emergency_contact'   => 'required|digits_between:7,15',
+                'emergency_contact'   => 'required|digits_between:7,11',
                 'file'                => 'nullable|file|max:10240|mimes:pdf,doc,docx,jpg,jpeg,png',
             ]);
 

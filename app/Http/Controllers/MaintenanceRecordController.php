@@ -53,6 +53,8 @@ class MaintenanceRecordController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
+            $this->normalizeMaintenanceInput($request);
+
             $validated = $request->validate([
                 'truck_id'          => 'required|exists:trucks,id',
                 'issue_description' => 'required|string|max:255',
@@ -424,6 +426,24 @@ class MaintenanceRecordController extends Controller
      * Returns 422 if the truck has a non-archived trip ticket
      * in Draft or In-Transit status; null if the truck is clear.
      */
+    /** Empty strings from JSON requests are not treated as null by Laravel validators. */
+    private function normalizeMaintenanceInput(Request $request): void
+    {
+        $cost = $request->input('cost');
+        if ($cost !== null && $cost !== '') {
+            $cleaned = preg_replace('/[^\d.]/', '', (string) $cost);
+            $cost = $cleaned !== '' ? $cleaned : null;
+        } else {
+            $cost = null;
+        }
+
+        $request->merge([
+            'start_date' => $request->filled('start_date') ? $request->input('start_date') : null,
+            'notes'      => $request->filled('notes') ? $request->input('notes') : null,
+            'cost'       => $cost,
+        ]);
+    }
+
     private function assertTruckNotOnActiveTrip(int $truckId): ?JsonResponse
     {
         $activeTrip = TripTicket::where('truck_id', $truckId)

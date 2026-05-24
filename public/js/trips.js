@@ -1,3 +1,5 @@
+const FV = () => window.FormValidation;
+
 // ── CSRF Token ────────────────────────────────────────────
 function getCsrf() {
     return document.querySelector('meta[name="csrf-token"]')?.content
@@ -187,16 +189,31 @@ document.getElementById('addTripBtn').addEventListener('click', () => {
 });
 
 function closeTripModal() {
-    document.getElementById('addTripForm').reset();
+    const form = document.getElementById('addTripForm');
+    form?.reset();
     clearFormError('addTripError');
+    FV()?.clearFormFieldNotices(form);
     closeModal('addTripModal');
 }
 
 // ── Add Trip Submit ───────────────────────────────────────
 
-document.getElementById('addTripForm').addEventListener('submit', async function (e) {
+const addTripForm = document.getElementById('addTripForm');
+if (addTripForm) FV()?.setupRequiredBubbles(addTripForm);
+
+const editTripForm = document.getElementById('editTripForm');
+if (editTripForm) FV()?.setupRequiredBubbles(editTripForm);
+
+addTripForm?.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearFormError('addTripError');
+
+    if (!FV()?.validateFormBubbles(this)) {
+        showFormError('addTripError', 'addTripErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
 
     const formData = new FormData(this);
     const payload  = Object.fromEntries(formData.entries());
@@ -265,6 +282,13 @@ function openEditTrip(id) {
 document.getElementById('editTripForm')?.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearFormError('editTripError');
+
+    if (!FV()?.validateFormBubbles(this)) {
+        showFormError('editTripError', 'editTripErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
 
     const id      = document.getElementById('editTripId').value;
     const payload = {

@@ -1,3 +1,5 @@
+const FV = () => window.FormValidation;
+
 // ── CSRF Token ────────────────────────────────────────────
 function getCsrf() {
     return document.querySelector('meta[name="csrf-token"]')?.content
@@ -110,8 +112,10 @@ function closeFleetModal(id = 'addFleetModal') {
     modal.classList.remove('show');
 
     if (id === 'addFleetModal') {
-        document.getElementById('addFleetForm').reset();
+        const form = document.getElementById('addFleetForm');
+        form?.reset();
         clearFormError('addFleetError');
+        FV()?.clearFormFieldNotices(form);
     }
 
     if (id === 'deleteTruckModal2') {
@@ -132,9 +136,21 @@ document.getElementById('deleteTruckModal1').addEventListener('click', function 
 
 // ── Add Fleet Submit ──────────────────────────────────────
 
-document.getElementById('addFleetForm').addEventListener('submit', async function (e) {
+const addFleetForm = document.getElementById('addFleetForm');
+if (addFleetForm) FV()?.setupRequiredBubbles(addFleetForm);
+
+document.querySelectorAll('.fleet-edit-form').forEach(form => FV()?.setupRequiredBubbles(form));
+
+addFleetForm?.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearFormError('addFleetError');
+
+    if (!FV()?.validateFormBubbles(this)) {
+        showFormError('addFleetError', 'addFleetErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
 
     const formData = new FormData(this);
     const payload  = Object.fromEntries(formData.entries());
@@ -178,13 +194,21 @@ document.querySelectorAll('.fleet-edit-form').forEach(form => {
     const details = form.closest('details');
     if (details) {
         details.addEventListener('toggle', () => {
-            if (details.open) clearInlineError(form);
+            if (details.open) {
+            clearInlineError(form);
+            FV()?.clearFormFieldNotices(form);
+        }
         });
     }
 
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
         clearInlineError(this);
+
+        if (!FV()?.validateFormBubbles(this)) {
+            showInlineError(this, 'Please fix the highlighted fields before submitting.');
+            return;
+        }
 
         const truckId  = this.dataset.id;
         const formData = new FormData(this);

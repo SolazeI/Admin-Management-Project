@@ -14,6 +14,7 @@
     <main class="main-content">
         @yield('content')
     </main>
+    <script src="{{ asset('js/form-validation.js') }}"></script>
     @stack('scripts')
 </body>
 </html>
