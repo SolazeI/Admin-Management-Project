@@ -166,7 +166,7 @@
                         <label>File <span class="required">*</span></label>
                         <div class="file-upload-area" id="fileUploadArea">
                             <input type="file" name="file" id="fileInput"
-                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required style="display:none;">
+                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display:none;">
                             <span class="material-symbols-outlined">upload_file</span>
                             <p>Click to upload file</p>
                         </div>

@@ -544,6 +544,9 @@ body.admin-page { display: flex; min-height: 100vh; }
 }
 
 .file-upload-area:hover { border-color: var(--accent); background: #eff6ff; }
+.file-upload-area.error { border-color: #dc2626; background: #fef2f2; }
+.file-upload-area.error .material-symbols-outlined { color: #dc2626; }
+.file-upload-area.error p { color: #dc2626; }
 .file-upload-area .material-symbols-outlined { font-size: 30px; color: var(--muted); margin-bottom: 7px; display: block; }
 .file-upload-area p { color: var(--muted); font-size: 12px; margin: 0; }
 

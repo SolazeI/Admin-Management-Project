@@ -156,6 +156,7 @@ function closeModal(modalId) {
         if (modalId === 'addDriverModal') {
             document.getElementById('addDriverForm').reset();
             clearFormError('addDriverError');
+            resetFileUploadUI('fileUploadArea');
         } else if (modalId === 'editDriverModal') {
             document.getElementById('editDriverForm').reset();
             clearFormError('editDriverError');
@@ -250,10 +251,14 @@ async function handleAddDriver(e) {
     clearFormError('addDriverError');
 
     const fileInput = document.getElementById('fileInput');
-    if (!fileInput.files || fileInput.files.length === 0) {
-        showFormError('addDriverError', 'addDriverErrorList', ['Please select a file to upload.']);
+    if (!fileInput?.files?.length) {
+        setFileUploadError('fileUploadArea', true);
+        showFormError('addDriverError', 'addDriverErrorList', [
+            'Please upload a driver file before submitting.',
+        ]);
         return;
     }
+    setFileUploadError('fileUploadArea', false);
 
     const formData   = new FormData(e.target);
     const expiryDate = formData.get('license_expiry_date');
@@ -549,7 +554,12 @@ function handleArchivedSearch(e) {
 // ── File Upload ───────────────────────────────────────────
 
 function handleFileSelect(e) {
-    updateFileUploadUI('fileUploadArea', e.target.files[0]);
+    const file = e.target.files[0];
+    if (file) {
+        setFileUploadError('fileUploadArea', false);
+        clearFormError('addDriverError');
+    }
+    updateFileUploadUI('fileUploadArea', file);
 }
 
 function handleEditFileSelect(e) {
@@ -564,6 +574,22 @@ function updateFileUploadUI(areaId, file) {
     if (icon) { icon.textContent = 'check_circle'; icon.style.color = '#10b981'; }
     if (text) text.textContent = file.name;
     area.style.borderColor = '#10b981';
+}
+
+function setFileUploadError(areaId, hasError) {
+    const area = document.getElementById(areaId);
+    if (area) area.classList.toggle('error', hasError);
+}
+
+function resetFileUploadUI(areaId) {
+    const area = document.getElementById(areaId);
+    if (!area) return;
+    area.classList.remove('error');
+    area.style.borderColor = '';
+    const icon = area.querySelector('.material-symbols-outlined');
+    const text = area.querySelector('p');
+    if (icon) { icon.textContent = 'upload_file'; icon.style.color = ''; }
+    if (text) text.textContent = 'Click to upload file';
 }
 
 function viewDriverFile() {
