@@ -15,12 +15,13 @@ class ActivityLogController extends Controller
     {
         $query = ActivityLog::orderByDesc('logged_at');
 
-        if ($subjectType = $request->get('subject_type')) {
-            $query->where('subject_type', $subjectType);
+        // Handle both single value and array
+        if ($subjectTypes = $request->get('subject_type')) {
+            $query->whereIn('subject_type', (array) $subjectTypes);
         }
 
-        if ($action = $request->get('action')) {
-            $query->where('action', $action);
+        if ($actions = $request->get('action')) {
+            $query->whereIn('action', (array) $actions);
         }
 
         if ($dateFrom = $request->get('date_from')) {
@@ -33,7 +34,6 @@ class ActivityLogController extends Controller
 
         $logs = $query->paginate(50)->withQueryString();
 
-        // Distinct values for filter dropdowns
         $subjectTypes = ActivityLog::distinct()->pluck('subject_type')->filter()->sort()->values();
         $actions      = ActivityLog::distinct()->pluck('action')->filter()->sort()->values();
 
