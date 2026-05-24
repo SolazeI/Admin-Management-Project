@@ -12,7 +12,7 @@
         @csrf
 
         <div class="login-logo">
-            <img src="{{ asset('images/AdminLogo.png') }}" alt="Gerardo Logo">
+            <img src="{{ asset('Images/AdminLogo.png') }}" alt="Gerardo Logo">
         </div>
 
         @if (session('error'))
