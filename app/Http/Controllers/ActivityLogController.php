@@ -13,31 +13,31 @@ class ActivityLogController extends Controller
      */
     public function index(Request $request)
     {
-        $query = ActivityLog::orderByDesc('logged_at');
+        try {
+            $query = ActivityLog::orderByDesc('logged_at');
 
-        // Handle both single value and array
-        if ($subjectTypes = $request->get('subject_type')) {
-            $query->whereIn('subject_type', (array) $subjectTypes);
+            if ($subjectType = $request->get('subject_type')) {
+                $query->where('subject_type', $subjectType);
+            }
+            if ($action = $request->get('action')) {
+                $query->where('action', $action);
+            }
+            if ($dateFrom = $request->get('date_from')) {
+                $query->whereDate('logged_at', '>=', $dateFrom);
+            }
+            if ($dateTo = $request->get('date_to')) {
+                $query->whereDate('logged_at', '<=', $dateTo);
+            }
+
+            $logs = $query->paginate(50)->withQueryString();
+            $subjectTypes = ActivityLog::distinct()->pluck('subject_type')->filter()->sort()->values();
+            $actions      = ActivityLog::distinct()->pluck('action')->filter()->sort()->values();
+
+            return view('logs', compact('logs', 'subjectTypes', 'actions'));
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage(), 'line' => $e->getLine(), 'file' => $e->getFile()], 500);
         }
-
-        if ($actions = $request->get('action')) {
-            $query->whereIn('action', (array) $actions);
-        }
-
-        if ($dateFrom = $request->get('date_from')) {
-            $query->whereDate('logged_at', '>=', $dateFrom);
-        }
-
-        if ($dateTo = $request->get('date_to')) {
-            $query->whereDate('logged_at', '<=', $dateTo);
-        }
-
-        $logs = $query->paginate(50)->withQueryString();
-
-        $subjectTypes = ActivityLog::distinct()->pluck('subject_type')->filter()->sort()->values();
-        $actions      = ActivityLog::distinct()->pluck('action')->filter()->sort()->values();
-
-        return view('logs', compact('logs', 'subjectTypes', 'actions'));
     }
 
     /**
