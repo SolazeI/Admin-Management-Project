@@ -232,10 +232,12 @@ async function editDriver(driverId) {
         document.getElementById('editPhoneNumber').value       = driver.phone_number;
         document.getElementById('editLicenseNumber').value     = driver.license_number;
         const editExpiryInput = document.getElementById('editLicenseExpiry');
-        editExpiryInput.value = formatDateForInput(driver.license_expiry_date);
-        const editExpiryPicker = document.getElementById('editLicenseExpiryPicker');
-        if (editExpiryPicker) {
-            editExpiryPicker.value = FV()?.displayDateToIso(editExpiryInput.value) || '';
+        if (editExpiryInput) {
+            editExpiryInput.value = formatDateForInput(driver.license_expiry_date);
+            const editExpiryPicker = document.getElementById('editLicenseExpiryPicker');
+            if (editExpiryPicker) {
+                editExpiryPicker.value = FV()?.displayDateToIso(editExpiryInput.value) || '';
+            }
         }
         document.getElementById('editAddress').value           = driver.address;
         document.getElementById('editEmergencyContact').value  = driver.emergency_contact;

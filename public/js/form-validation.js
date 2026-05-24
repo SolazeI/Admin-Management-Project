@@ -119,8 +119,9 @@
         form.dataset.bubblesReady = '1';
     }
 
-    function normalizePhoneDigits(value) {
-        return (value || '').replace(/\D/g, '').slice(0, PHONE_MAX_DIGITS);
+    /** Strip formatting only — never truncate; length is validated separately. */
+    function stripPhoneDigits(value) {
+        return (value || '').replace(/\D/g, '');
     }
 
     function validateRequiredField(input, { required = false } = {}) {
@@ -145,8 +146,11 @@
     function validatePhoneField(input, { required = false } = {}) {
         if (!input) return true;
 
-        const digits = normalizePhoneDigits(input.value);
-        if (input.value !== digits) input.value = digits;
+        const digits = stripPhoneDigits(input.value);
+        // Only remove formatting characters — do not truncate digit count.
+        if (input.value !== digits) {
+            input.value = digits;
+        }
 
         if (!digits.length) {
             if (required) {

@@ -99,6 +99,8 @@ class MaintenanceRecordController extends Controller
             $record      = MaintenanceRecord::findOrFail($id); // throws ModelNotFoundException → 404
             $oldSnapshot = $this->modelSnapshot($record);
 
+            $this->normalizeMaintenanceInput($request);
+
             $validated = $request->validate([
                 'truck_id'          => 'required|exists:trucks,id',
                 'issue_description' => 'required|string|max:255',
