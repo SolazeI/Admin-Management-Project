@@ -25,7 +25,7 @@
         <div class="header-actions">
             <div class="search-wrapper">
                 <span class="material-symbols-outlined search-icon">search</span>
-                <input class="search-input" id="reportSearch" placeholder="Find Record">
+                <input class="search-input" id="reportSearch" placeholder="Search by name, license, truck, issue…" autocomplete="off">
             </div>
             <div style="position:relative;">
                 <button class="btn btn-filter" id="reportFilterBtn">
@@ -67,10 +67,26 @@
         </div>
     </div>
 
+    @if (session('success'))
+        <div class="notice-line" style="border-left-color:#059669; background:#f0fdf4; color:#065f46; margin-bottom:14px;">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if (session('error'))
+        <div class="notice-line" style="border-left-color:#dc2626; background:#fef2f2; color:#991b1b; margin-bottom:14px;">
+            {{ session('error') }}
+        </div>
+    @endif
+    @if (isset($errors) && $errors->any())
+        <div class="notice-line" style="border-left-color:#dc2626; background:#fef2f2; color:#991b1b; margin-bottom:14px;">
+            {{ $errors->first() }}
+        </div>
+    @endif
+
     {{-- Tab Switcher --}}
     <div style="display:flex; gap:8px; margin-bottom:18px;">
         <button class="btn btn-primary" type="button" id="tabDriverBtn">Driver Records</button>
-        <button class="btn btn-secondary" type="button" id="tabMaintenanceBtn">Maintenance Record</button>
+        <button class="btn btn-secondary" type="button" id="tabMaintenanceBtn">Maintenance Records</button>
     </div>
 
     {{-- Financial Summary --}}
@@ -152,8 +168,11 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="no-data">No driver records yet.</td></tr>
+                        <tr><td colspan="6" class="no-data">No driver records found yet.</td></tr>
                     @endforelse
+                    <tr class="report-empty-state-row" style="display:none;">
+                        <td colspan="6" class="no-data" id="driverEmptyStateMsg"></td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -199,8 +218,11 @@
                             <td>{{ $rec->cost !== null ? '₱'.number_format($rec->cost, 0) : '—' }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="no-data">No maintenance records yet.</td></tr>
+                        <tr><td colspan="6" class="no-data">No maintenance records found yet.</td></tr>
                     @endforelse
+                    <tr class="report-empty-state-row" style="display:none;">
+                        <td colspan="6" class="no-data" id="maintenanceEmptyStateMsg"></td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -220,7 +242,6 @@
         box-shadow:0 20px 60px rgba(0,0,0,.22);
         flex-direction:column; overflow:hidden;">
 
-        {{-- Modal Header --}}
         <div style="padding:20px 24px 16px; border-bottom:1px solid #e2e8f0;
             display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
             <div>
@@ -234,7 +255,6 @@
             </button>
         </div>
 
-        {{-- Modal Body --}}
         <div style="flex:1; overflow-y:auto; padding:20px 24px;" id="panelBody">
             <div id="panelLoader" style="display:flex; align-items:center; justify-content:center;
                 height:140px; color:#64748b; font-size:13px;">
@@ -242,16 +262,13 @@
                     style="font-size:20px; margin-right:8px; animation:spin 1s linear infinite;">
                     progress_activity
                 </span>
-                Loading driver info...
+                Loading driver info…
             </div>
             <div id="panelContent" style="display:none;">
-                {{-- Info Cards --}}
                 <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:20px;"
                     id="panelInfoCards"></div>
-                {{-- Stats Row --}}
                 <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:20px;"
                     id="panelStats"></div>
-                {{-- Trip Table --}}
                 <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px;
                     color:#64748b; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:12px;">
                     Trip History
@@ -260,7 +277,6 @@
             </div>
         </div>
 
-        {{-- Modal Footer --}}
         <div style="padding:14px 24px; border-top:1px solid #e2e8f0;
             display:flex; gap:8px; flex-shrink:0; background:#fafafa; border-radius:0 0 14px 14px;">
             <button id="panelExportBtn" type="button" onclick="exportPanelDriver()"
@@ -277,9 +293,10 @@
             </button>
         </div>
     </div>
+
     <script>
         window.exportDriverBase      = "{{ route('reports.export.driver', '') }}";
-        window.driverInfoBase = "{{ route('reports.driver.info', ['driver' => '__ID__']) }}";
+        window.driverInfoBase        = "{{ route('reports.driver.info', ['driver' => '__ID__']) }}";
         window.exportMaintenanceBase = "{{ route('reports.export.maintenance') }}";
     </script>
     <script src="{{ asset('js/reports.js') }}"></script>

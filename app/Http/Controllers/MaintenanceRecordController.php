@@ -45,8 +45,7 @@ class MaintenanceRecordController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            // index() renders a Blade view — return a view-level error, not JSON
-            return back()->withErrors(['error' => 'Unable to load maintenance records. Please try again.']);
+            return back()->withErrors(['error' => 'We couldn\'t load the maintenance records. Please refresh and try again.']);
         }
     }
 
@@ -59,6 +58,14 @@ class MaintenanceRecordController extends Controller
                 'start_date'        => 'nullable|date',
                 'notes'             => 'nullable|string|max:255',
                 'cost'              => 'nullable|numeric|min:0',
+            ], [
+                'truck_id.required'          => 'Please select a truck.',
+                'truck_id.exists'            => 'The selected truck could not be found. Please try again.',
+                'issue_description.required' => 'Please describe the issue.',
+                'issue_description.max'      => 'Issue description is too long (maximum 255 characters).',
+                'notes.max'                  => 'Notes are too long (maximum 255 characters).',
+                'cost.numeric'               => 'Cost must be a valid number.',
+                'cost.min'                   => 'Cost cannot be negative.',
             ]);
 
             if ($error = $this->assertTruckNotOnActiveTrip($validated['truck_id'])) {
@@ -76,7 +83,7 @@ class MaintenanceRecordController extends Controller
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 'Validation failed. Please check your inputs and try again.',
+                'message' => 'Some fields need your attention. Please review and try again.',
                 'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
@@ -86,7 +93,7 @@ class MaintenanceRecordController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
             return response()->json([
-                'message' => 'An unexpected error occurred while adding the maintenance record. Please try again.',
+                'message' => 'We couldn\'t add this maintenance record right now. Please try again in a moment.',
             ], 500);
         }
     }
@@ -94,7 +101,7 @@ class MaintenanceRecordController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         try {
-            $record      = MaintenanceRecord::findOrFail($id); // throws ModelNotFoundException → 404
+            $record      = MaintenanceRecord::findOrFail($id);
             $oldSnapshot = $this->modelSnapshot($record);
 
             $validated = $request->validate([
@@ -103,6 +110,14 @@ class MaintenanceRecordController extends Controller
                 'start_date'        => 'nullable|date',
                 'notes'             => 'nullable|string|max:255',
                 'cost'              => 'nullable|numeric|min:0',
+            ], [
+                'truck_id.required'          => 'Please select a truck.',
+                'truck_id.exists'            => 'The selected truck could not be found. Please try again.',
+                'issue_description.required' => 'Please describe the issue.',
+                'issue_description.max'      => 'Issue description is too long (maximum 255 characters).',
+                'notes.max'                  => 'Notes are too long (maximum 255 characters).',
+                'cost.numeric'               => 'Cost must be a valid number.',
+                'cost.min'                   => 'Cost cannot be negative.',
             ]);
 
             // Only re-check cross-module constraint if the truck is being swapped
@@ -127,11 +142,11 @@ class MaintenanceRecordController extends Controller
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'message' => 'Maintenance record not found.',
+                'message' => 'This maintenance record no longer exists or may have already been removed.',
             ], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 'Validation failed. Please check your inputs and try again.',
+                'message' => 'Some fields need your attention. Please review and try again.',
                 'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
@@ -141,7 +156,7 @@ class MaintenanceRecordController extends Controller
                 'trace'     => $e->getTraceAsString(),
             ]);
             return response()->json([
-                'message' => 'An unexpected error occurred while updating the maintenance record. Please try again.',
+                'message' => 'We couldn\'t save the changes. Please try again in a moment.',
             ], 500);
         }
     }
@@ -149,10 +164,13 @@ class MaintenanceRecordController extends Controller
     public function transition(Request $request, int $id): JsonResponse
     {
         try {
-            $record = MaintenanceRecord::findOrFail($id); // throws ModelNotFoundException → 404
+            $record = MaintenanceRecord::findOrFail($id);
 
             $validated = $request->validate([
                 'status' => 'required|in:In-Progress,Completed,Cancelled',
+            ], [
+                'status.required' => 'Please select a status to transition to.',
+                'status.in'       => 'The selected status is not valid for this action.',
             ]);
 
             $allowed = [
@@ -164,7 +182,7 @@ class MaintenanceRecordController extends Controller
 
             if (!isset($allowed[$current]) || !in_array($validated['status'], $allowed[$current], true)) {
                 return response()->json([
-                    'message' => "Invalid status transition: cannot move from \"{$current}\" to \"{$validated['status']}\".",
+                    'message' => "This record can't be moved to \"{$validated['status']}\" from its current status \"{$current}\".",
                     'errors'  => ['status' => ["Cannot transition from \"{$current}\" to \"{$validated['status']}\"."]],
                 ], 422);
             }
@@ -195,11 +213,11 @@ class MaintenanceRecordController extends Controller
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'message' => 'Maintenance record not found.',
+                'message' => 'This maintenance record no longer exists or may have already been removed.',
             ], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 'Validation failed. Please check your inputs and try again.',
+                'message' => 'Some fields need your attention. Please review and try again.',
                 'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
@@ -209,7 +227,7 @@ class MaintenanceRecordController extends Controller
                 'trace'     => $e->getTraceAsString(),
             ]);
             return response()->json([
-                'message' => 'An unexpected error occurred while updating the maintenance status. Please try again.',
+                'message' => 'We couldn\'t update the maintenance status right now. Please try again in a moment.',
             ], 500);
         }
     }
@@ -219,6 +237,8 @@ class MaintenanceRecordController extends Controller
         try {
             $validated = $request->validate([
                 'password' => 'required|string',
+            ], [
+                'password.required' => 'Please enter the admin password to continue.',
             ]);
 
             if (!$this->checkAdminPassword($validated['password'])) {
@@ -227,11 +247,11 @@ class MaintenanceRecordController extends Controller
                     'ip'        => $request->ip(),
                 ]);
                 return response()->json([
-                    'message' => 'Incorrect admin password.',
-                ], 403);
+                    'message' => 'Incorrect password. Please try again.',
+                ], 401);
             }
 
-            $record  = MaintenanceRecord::findOrFail($id); // throws ModelNotFoundException → 404
+            $record  = MaintenanceRecord::findOrFail($id);
             $truckId = $record->truck_id;
             $label   = optional($record->truck)->truck_code ?? '—';
 
@@ -246,11 +266,11 @@ class MaintenanceRecordController extends Controller
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'message' => 'Maintenance record not found.',
+                'message' => 'This maintenance record no longer exists or may have already been removed.',
             ], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 'Please enter the admin password.',
+                'message' => 'Please enter the admin password to continue.',
                 'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
@@ -260,7 +280,7 @@ class MaintenanceRecordController extends Controller
                 'trace'     => $e->getTraceAsString(),
             ]);
             return response()->json([
-                'message' => 'An unexpected error occurred while archiving the maintenance record. Please try again.',
+                'message' => 'We couldn\'t archive this maintenance record right now. Please try again in a moment.',
             ], 500);
         }
     }
@@ -268,7 +288,7 @@ class MaintenanceRecordController extends Controller
     public function unarchive(Request $request, int $id): JsonResponse
     {
         try {
-            $record = MaintenanceRecord::findOrFail($id); // throws ModelNotFoundException → 404
+            $record = MaintenanceRecord::findOrFail($id);
             $label  = optional($record->truck)->truck_code ?? '—';
 
             $record->update(['is_archived' => false]);
@@ -282,7 +302,7 @@ class MaintenanceRecordController extends Controller
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'message' => 'Maintenance record not found.',
+                'message' => 'This maintenance record no longer exists or may have already been removed.',
             ], 404);
         } catch (\Exception $e) {
             Log::error('Failed to unarchive maintenance record', [
@@ -291,7 +311,7 @@ class MaintenanceRecordController extends Controller
                 'trace'     => $e->getTraceAsString(),
             ]);
             return response()->json([
-                'message' => 'An unexpected error occurred while restoring the maintenance record. Please try again.',
+                'message' => 'We couldn\'t restore this maintenance record right now. Please try again in a moment.',
             ], 500);
         }
     }
@@ -301,6 +321,8 @@ class MaintenanceRecordController extends Controller
         try {
             $validated = $request->validate([
                 'password' => 'required|string',
+            ], [
+                'password.required' => 'Please enter the admin password to continue.',
             ]);
 
             if (!$this->checkAdminPassword($validated['password'])) {
@@ -309,11 +331,11 @@ class MaintenanceRecordController extends Controller
                     'ip'        => $request->ip(),
                 ]);
                 return response()->json([
-                    'message' => 'Incorrect admin password.',
-                ], 403);
+                    'message' => 'Incorrect password. Please try again.',
+                ], 401);
             }
 
-            $record   = MaintenanceRecord::findOrFail($id); // throws ModelNotFoundException → 404
+            $record   = MaintenanceRecord::findOrFail($id);
             $snapshot = $this->modelSnapshot($record);
             $truckId  = $record->truck_id;
             $label    = optional($record->truck)->truck_code ?? '—';
@@ -329,11 +351,11 @@ class MaintenanceRecordController extends Controller
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'message' => 'Maintenance record not found.',
+                'message' => 'This maintenance record no longer exists or may have already been removed.',
             ], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 'Please enter the admin password.',
+                'message' => 'Please enter the admin password to continue.',
                 'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
@@ -343,7 +365,7 @@ class MaintenanceRecordController extends Controller
                 'trace'     => $e->getTraceAsString(),
             ]);
             return response()->json([
-                'message' => 'An unexpected error occurred while deleting the maintenance record. Please try again.',
+                'message' => 'We couldn\'t delete this maintenance record right now. Please try again in a moment.',
             ], 500);
         }
     }
@@ -353,7 +375,7 @@ class MaintenanceRecordController extends Controller
         try {
             $query = trim($request->get('q', ''));
             if ($query === '') {
-                return response()->json(['message' => 'Search query cannot be empty.'], 422);
+                return response()->json(['message' => 'Please enter a truck code, issue, or note to search.'], 422);
             }
             $records = MaintenanceRecord::with('truck')
                 ->where('is_archived', false)
@@ -366,7 +388,7 @@ class MaintenanceRecordController extends Controller
                 ->get();
             if ($records->isEmpty()) {
                 return response()->json([
-                    'message' => "No maintenance records found matching \"{$query}\".",
+                    'message' => "No maintenance records found matching \"{$query}\". Try a different keyword.",
                     'data'    => [],
                 ], 404);
             }
@@ -389,7 +411,7 @@ class MaintenanceRecordController extends Controller
                 $invalid = array_diff($statuses, $validStatuses);
                 if (!empty($invalid)) {
                     return response()->json([
-                        'message' => 'Invalid status value(s) provided.',
+                        'message' => 'One or more selected filters are invalid. Please refresh and try again.',
                         'errors'  => ['statuses' => ['Allowed values: Pending, In-Progress, Completed, Cancelled.']],
                     ], 422);
                 }
@@ -402,7 +424,7 @@ class MaintenanceRecordController extends Controller
             if ($records->isEmpty()) {
                 $label = !empty($statuses) ? implode(', ', $statuses) : 'any status';
                 return response()->json([
-                    'message' => "No maintenance records found for status: {$label}.",
+                    'message' => "No maintenance records found with status: {$label}.",
                     'data'    => [],
                 ], 404);
             }
@@ -439,9 +461,8 @@ class MaintenanceRecordController extends Controller
         $tripNo  = $activeTrip->trip_no ?? "ID {$activeTrip->id}";
         $status  = $activeTrip->status;
 
-        $message = "Truck {$code} cannot be put under maintenance because it has an active trip ticket "
-                 . "({$tripNo}) with status \"{$status}\". "
-                 . "Complete or cancel the trip ticket first.";
+        $message = "Truck {$code} can't be put under maintenance right now — it's currently assigned to trip \"{$tripNo}\" ({$status}). "
+                 . "Please complete or cancel that trip first.";
 
         return response()->json([
             'message' => $message,
