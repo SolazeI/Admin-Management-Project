@@ -33,7 +33,7 @@ class ActivityLogController extends Controller
             $subjectTypes = ActivityLog::distinct()->pluck('subject_type')->filter()->sort()->values();
             $actions      = ActivityLog::distinct()->pluck('action')->filter()->sort()->values();
 
-            return view('logs', compact('logs', 'subjectTypes', 'actions'));
+            return view('logs.index', compact('logs', 'subjectTypes', 'actions'));
 
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage(), 'line' => $e->getLine(), 'file' => $e->getFile()], 500);
