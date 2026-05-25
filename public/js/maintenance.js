@@ -106,6 +106,14 @@ function initializeEventListeners() {
     editMaintenanceForm?.addEventListener('submit', async function (e) {
         e.preventDefault();
         clearFormError('editMaintError');
+        
+        const isValid = window.FormValidation?.validateDriverForm(this) ?? true;
+        if (!isValid) {
+            showFormError('editMaintError', 'editMaintErrorList', [
+                'Please fix the highlighted fields before submitting.',
+            ]);
+            return;
+        }
 
         const id      = document.getElementById('editMaintId').value;
         const payload = buildMaintenancePayload(this);
@@ -308,6 +316,14 @@ function closeMaintenanceModal() {
 async function handleAddMaintenance(e) {
     e.preventDefault();
     clearFormError('addMaintError');
+
+    const isValid = window.FormValidation?.validateDriverForm(e.target) ?? true;
+    if (!isValid) {
+        showFormError('addMaintError', 'addMaintErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
 
     const payload = buildMaintenancePayload(e.target);
 

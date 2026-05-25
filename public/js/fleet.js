@@ -118,6 +118,14 @@ document.getElementById('addFleetForm')?.addEventListener('submit', async functi
     e.preventDefault();
     clearFormError('addFleetError');
 
+    const isValid = window.FormValidation?.validateDriverForm(this) ?? true;
+    if (!isValid) {
+        showFormError('addFleetError', 'addFleetErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
+
     const formData = new FormData(this);
     const payload  = Object.fromEntries(formData.entries());
 
@@ -167,6 +175,12 @@ document.querySelectorAll('.fleet-edit-form').forEach(form => {
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
         clearInlineError(this);
+
+        const isValid = window.FormValidation?.validateDriverForm(this) ?? true;
+        if (!isValid) {
+            showInlineError(this, ['Please fix the highlighted fields before submitting.']);
+            return;
+        }
 
         const truckId  = this.dataset.id;
         const formData = new FormData(this);

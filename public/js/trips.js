@@ -194,6 +194,14 @@ document.getElementById('addTripForm')?.addEventListener('submit', async functio
     e.preventDefault();
     clearFormError('addTripError');
 
+    const isValid = window.FormValidation?.validateDriverForm(this) ?? true;
+    if (!isValid) {
+        showFormError('addTripError', 'addTripErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
+
     const payload = buildTripPayload(this);
 
     const btn = this.querySelector('[type="submit"]');
@@ -259,6 +267,14 @@ function openEditTrip(id) {
 document.getElementById('editTripForm')?.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearFormError('editTripError');
+
+    const isValid = window.FormValidation?.validateDriverForm(this) ?? true;
+    if (!isValid) {
+        showFormError('editTripError', 'editTripErrorList', [
+            'Please fix the highlighted fields before submitting.',
+        ]);
+        return;
+    }
 
     const id      = document.getElementById('editTripId')?.value;
     const payload = buildTripPayload(this);

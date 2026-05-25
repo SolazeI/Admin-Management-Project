@@ -149,7 +149,7 @@ async function openLogDetail(id) {
 
 function buildDetailHtml(log) {
     const fmt = v => (v === null || v === undefined)
-        ? '<span class="diff-null">—</span>'
+        ? '<span style="color:#94a3b8; font-size:13px;">—</span>'
         : escHtml(String(v));
 
     // ── Meta grid ──────────────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ function buildDetailHtml(log) {
 
     const subjectVal = log.subject_label
         ? escHtml(log.subject_label) + (log.subject_id
-            ? ` <span class="log-subject-id">#${log.subject_id}</span>`
+            ? ` <span style="color:#94a3b8; font-size:11px; font-weight:400; margin-left:3px;">#${log.subject_id}</span>`
             : '')
         : '—';
     html += metaField('Subject', subjectVal, true);
@@ -200,13 +200,13 @@ function buildDetailHtml(log) {
         if (keys.size > 0) {
             html += `
                 <p class="log-detail-section-label">Changes</p>
-                <div class="log-detail-diff-wrap">
-                    <table class="diff-table">
+                <div style="border-radius:8px; border:1px solid #e2e8f0; overflow:hidden; overflow-x:auto;">
+                    <table style="width:100%; min-width:400px; border-collapse:collapse; font-size:13px; font-family:'Poppins',sans-serif;">
                         <thead>
                             <tr>
-                                <th style="width:35%;">Field</th>
-                                <th style="width:32.5%;">Before</th>
-                                <th style="width:32.5%;">After</th>
+                                <th style="width:35%; text-align:left; padding:9px 14px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid #e2e8f0; background:#f8fafc;">Field</th>
+                                <th style="width:32.5%; text-align:left; padding:9px 14px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid #e2e8f0; background:#f8fafc;">Before</th>
+                                <th style="width:32.5%; text-align:left; padding:9px 14px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid #e2e8f0; background:#f8fafc;">After</th>
                             </tr>
                         </thead>
                         <tbody>`;
@@ -216,15 +216,19 @@ function buildDetailHtml(log) {
                 const after   = newVals?.[key] ?? null;
                 const changed = JSON.stringify(before) !== JSON.stringify(after);
                 html += `
-                    <tr class="${changed ? 'diff-row-changed' : 'diff-row-unchanged'}">
-                        <td class="diff-key">${escHtml(key.replace(/_/g, ' '))}</td>
-                        <td>${before !== null
-                            ? `<span class="diff-old">${fmt(before)}</span>`
-                            : '<span class="diff-empty">—</span>'}
+                    <tr style="${changed ? 'background:#fefce8;' : ''}">
+                        <td style="padding:10px 14px; border-bottom:1px solid #f1f5f9; font-weight:600; color:#334155; font-size:13px; text-transform:capitalize; max-width:160px; word-break:break-word;">
+                            ${escHtml(key.replace(/_/g, ' '))}
                         </td>
-                        <td>${after !== null
-                            ? `<span class="diff-new">${fmt(after)}</span>`
-                            : '<span class="diff-empty">—</span>'}
+                        <td style="padding:10px 14px; border-bottom:1px solid #f1f5f9; max-width:200px; word-break:break-word; overflow-wrap:break-word;">
+                            ${before !== null
+                                ? `<span style="font-size:13px; font-weight:500; color:#b91c1c; text-decoration:line-through; text-decoration-color:#f87171;">${fmt(before)}</span>`
+                                : '<span style="color:#94a3b8; font-size:13px;">—</span>'}
+                        </td>
+                        <td style="padding:10px 14px; border-bottom:1px solid #f1f5f9; max-width:200px; word-break:break-word; overflow-wrap:break-word;">
+                            ${after !== null
+                                ? `<span style="font-size:13px; font-weight:700; color:#15803d;">${fmt(after)}</span>`
+                                : '<span style="color:#94a3b8; font-size:13px;">—</span>'}
                         </td>
                     </tr>`;
             }

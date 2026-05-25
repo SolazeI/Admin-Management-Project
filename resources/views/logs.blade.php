@@ -227,12 +227,14 @@
 
 {{-- ── Log Detail Modal ─────────────────────────────────────────────────────── --}}
 <div class="modal" id="logDetailModal">
-    <div class="modal-content log-detail-modal-content">
+    <div class="modal-content"
+         style="max-width:700px; width:90%; display:flex; flex-direction:column; max-height:calc(100vh - 80px); overflow:hidden;">
         <div class="modal-header">
             <span class="material-symbols-outlined">manage_search</span>
             <h2>Log Detail</h2>
         </div>
-        <div class="modal-body log-detail-body" id="logDetailBody">
+        <div class="modal-body" id="logDetailBody"
+             style="flex:1 1 auto; overflow-y:auto; overflow-x:hidden; padding:20px 24px; min-height:0;">
             <div class="log-loading-state">
                 <span class="material-symbols-outlined log-spin">sync</span>
                 Loading…
@@ -491,18 +493,6 @@
 .page-btn-disabled   { opacity: .4; pointer-events: none; }
 
 /* ── Log Detail Modal ─────────────────────────────────────────────────────── */
-.log-detail-modal-content {
-    max-width: 700px;
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 80px);
-}
-.log-detail-body {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    padding: 20px 24px;
-    min-height: 0;
-}
 .log-loading-state {
     display: flex;
     align-items: center;
@@ -554,79 +544,6 @@
     text-transform: uppercase;
     letter-spacing: .07em;
     margin: 0 0 8px;
-}
-.log-detail-diff-wrap {
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    overflow: hidden;
-}
-
-/* ── Diff table ───────────────────────────────────────────────────────────── */
-.diff-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    font-family: 'Poppins', sans-serif;
-}
-.diff-table th {
-    text-align: left;
-    padding: 9px 14px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
-}
-.diff-table td {
-    padding: 10px 14px;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
-    font-size: 13px;
-    color: #1e293b;
-}
-.diff-table tr:last-child td { border-bottom: none; }
-
-/* Field name column */
-.diff-key {
-    font-weight: 600;
-    color: #334155;
-    font-size: 13px;
-    font-family: 'Poppins', sans-serif;
-    text-transform: capitalize;
-}
-
-/* Unchanged rows — clearly dimmed */
-.diff-row-unchanged { font-weight: thin; }
-/* Changed rows — soft yellow highlight */
-.diff-row-changed { background: #fefce8; }
-.diff-row-changed td { border-bottom-color: #fde047; }
-.diff-row-changed .diff-key { color: #1e293b; }
-/* Before value — dark red + strikethrough */
-.diff-old {
-    font-size: 13px;
-    font-weight: 500;
-    color: #b91c1c;
-    font-family: 'Poppins', sans-serif;
-    word-break: break-word;
-    text-decoration: line-through;
-    text-decoration-color: #f87171;
-}
-/* After value — dark green + bold */
-.diff-new {
-    font-size: 13px;
-    font-weight: 700;
-    color: #15803d;
-    font-family: 'Poppins', sans-serif;
-    word-break: break-word;
-}
-
-/* Empty / null placeholders */
-.diff-empty,
-.diff-null {
-    color: #94a3b8;
-    font-size: 13px;
 }
 
 @keyframes log-spin { to { transform: rotate(360deg); } }
