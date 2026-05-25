@@ -172,13 +172,6 @@
                                             <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
                                             Archive
                                         </button>
-                                    @else
-                                        <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
-                                            onclick="confirmArchiveMaint({{ $rec->id }}, '{{ addslashes($rec->issue_description) }}')">
-                                            <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
-                                            Archive
-                                        </button>
-                                    @endif
 
                                 </div>
                             </td>
