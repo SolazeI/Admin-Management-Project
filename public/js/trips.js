@@ -79,6 +79,48 @@ function clearPasswordError(errorId) {
     if (el) el.style.display = 'none';
 }
 
+function runTripFormValidation(form) {
+    const fv = FV();
+    if (!fv || typeof fv.validateTripForm !== 'function') {
+        return fv?.validateFormBubbles?.(form) ?? true;
+    }
+    return fv.validateTripForm(form);
+}
+
+function mapServerErrorsToForm(form, errors) {
+    if (!form || !errors || typeof errors !== 'object') return;
+    const fv = FV();
+    Object.entries(errors).forEach(([field, messages]) => {
+        const input = form.querySelector(`[name="${field}"]`);
+        const msg = Array.isArray(messages) ? messages[0] : messages;
+        if (input && msg && fv) fv.showFieldNotice(input, msg);
+    });
+}
+
+/** Omit empty optionals so nullable Laravel rules pass on JSON requests. */
+function buildTripPayload(form) {
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(formData.entries());
+    delete payload._token;
+
+    ['date_issued', 'origin', 'destination', 'departure_time', 'arrival_time', 'remarks', 'trip_no'].forEach((field) => {
+        if (payload[field] === '' || payload[field] == null) delete payload[field];
+    });
+
+    ['distance_km', 'amount'].forEach((field) => {
+        const raw = (payload[field] ?? '').toString().trim();
+        if (!raw) {
+            delete payload[field];
+        } else {
+            const cleaned = raw.replace(/[^\d.]/g, '');
+            if (!cleaned) delete payload[field];
+            else payload[field] = cleaned;
+        }
+    });
+
+    return payload;
+}
+
 // ── Server Error Banner ───────────────────────────────────
 
 function showTripServerError(message, sub = '') {
@@ -199,25 +241,19 @@ function closeTripModal() {
 // ── Add Trip Submit ───────────────────────────────────────
 
 const addTripForm = document.getElementById('addTripForm');
-if (addTripForm) FV()?.setupRequiredBubbles(addTripForm);
-
-const editTripForm = document.getElementById('editTripForm');
-if (editTripForm) FV()?.setupRequiredBubbles(editTripForm);
 
 addTripForm?.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearFormError('addTripError');
 
-    if (!FV()?.validateFormBubbles(this)) {
+    if (!runTripFormValidation(this)) {
         showFormError('addTripError', 'addTripErrorList', [
             'Please fix the highlighted fields before submitting.',
         ]);
         return;
     }
 
-    const formData = new FormData(this);
-    const payload  = Object.fromEntries(formData.entries());
-    delete payload._token;
+    const payload = buildTripPayload(this);
 
     const btn = this.querySelector('[type="submit"]');
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
@@ -239,6 +275,7 @@ addTripForm?.addEventListener('submit', async function (e) {
         } else {
             const data = await response.json().catch(() => null);
             if (data?.errors) {
+                mapServerErrorsToForm(this, data.errors);
                 showFormError('addTripError', 'addTripErrorList', data.errors);
             } else {
                 showFormError('addTripError', 'addTripErrorList', [
@@ -276,6 +313,7 @@ function openEditTrip(id) {
     document.getElementById('editTripRemarks').value     = row.dataset.remarks;
 
     clearFormError('editTripError');
+    FV()?.clearFormFieldNotices(document.getElementById('editTripForm'));
     openModal('editTripModal');
 }
 
@@ -283,27 +321,15 @@ document.getElementById('editTripForm')?.addEventListener('submit', async functi
     e.preventDefault();
     clearFormError('editTripError');
 
-    if (!FV()?.validateFormBubbles(this)) {
+    if (!runTripFormValidation(this)) {
         showFormError('editTripError', 'editTripErrorList', [
             'Please fix the highlighted fields before submitting.',
         ]);
         return;
     }
 
-    const id      = document.getElementById('editTripId').value;
-    const payload = {
-        trip_no:        document.getElementById('editTripNo').value,
-        date_issued:    document.getElementById('editTripDateIssued').value,
-        truck_id:       document.getElementById('editTripTruckId').value,
-        driver_id:      document.getElementById('editTripDriverId').value,
-        origin:         document.getElementById('editTripOrigin').value,
-        destination:    document.getElementById('editTripDestination').value,
-        departure_time: document.getElementById('editTripDeparture').value,
-        arrival_time:   document.getElementById('editTripArrival').value,
-        distance_km:    document.getElementById('editTripDistance').value,
-        amount:         document.getElementById('editTripAmount').value,
-        remarks:        document.getElementById('editTripRemarks').value,
-    };
+    const id = document.getElementById('editTripId')?.value;
+    const payload = buildTripPayload(this);
 
     const btn = this.querySelector('[type="submit"]');
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
@@ -324,9 +350,14 @@ document.getElementById('editTripForm')?.addEventListener('submit', async functi
             location.reload();
         } else {
             const data = await response.json().catch(() => null);
-            showFormError('editTripError', 'editTripErrorList',
-                data?.errors ? Object.values(data.errors).flat() : [data?.message || 'Something went wrong.']
-            );
+            if (data?.errors) {
+                mapServerErrorsToForm(this, data.errors);
+                showFormError('editTripError', 'editTripErrorList', data.errors);
+            } else {
+                showFormError('editTripError', 'editTripErrorList', [
+                    data?.message || 'Something went wrong.',
+                ]);
+            }
         }
     } catch (err) {
         showFormError('editTripError', 'editTripErrorList', ['Unable to connect. Please try again.']);

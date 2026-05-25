@@ -179,7 +179,7 @@
                 <h2>Trip Ticket Entry</h2>
             </div>
             <div class="modal-body" style="padding:0;">
-                <form id="addTripForm" data-validate="standard" novalidate>
+                <form id="addTripForm" data-validate="trip" novalidate>
                     @csrf
                     <div class="trip-entry-header">Weekly / Monthly Trip Ticket Entry</div>
                     <div class="trip-entry-subtitle">New tickets start as Draft — use the Dispatch button to put them In-Transit</div>
@@ -432,7 +432,7 @@
                 <span class="material-symbols-outlined">edit</span>
                 <h2>Edit Trip Ticket</h2>
             </div>
-            <form id="editTripForm" data-validate="standard" novalidate>
+            <form id="editTripForm" data-validate="trip" novalidate>
                 @csrf
                 <input type="hidden" id="editTripId">
                 <div class="modal-body">
@@ -507,5 +507,8 @@
         </div>
     </div>
 
-    <script src="{{ asset('js/trips.js') }}"></script>
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('js/trips.js') }}"></script>
+@endpush

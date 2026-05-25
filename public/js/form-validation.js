@@ -302,6 +302,123 @@
         });
     }
 
+    function validateNativeDateField(input, { required = false } = {}) {
+        if (!input || input.type !== 'date') return true;
+
+        const value = (input.value ?? '').trim();
+        if (!value.length) {
+            if (required) {
+                showFieldNotice(input, `${getFieldLabel(input)} is required.`);
+                return false;
+            }
+            clearFieldNotice(input);
+            return true;
+        }
+
+        if (!input.validity.valid) {
+            showFieldNotice(input, 'Enter a valid date.');
+            return false;
+        }
+
+        clearFieldNotice(input);
+        return true;
+    }
+
+    function validateDateTimeLocalField(input, { required = false } = {}) {
+        if (!input || input.type !== 'datetime-local') return true;
+
+        const value = (input.value ?? '').trim();
+        if (!value.length) {
+            if (required) {
+                showFieldNotice(input, `${getFieldLabel(input)} is required.`);
+                return false;
+            }
+            clearFieldNotice(input);
+            return true;
+        }
+
+        if (!input.validity.valid || Number.isNaN(new Date(value).getTime())) {
+            showFieldNotice(input, 'Enter a valid date and time.');
+            return false;
+        }
+
+        clearFieldNotice(input);
+        return true;
+    }
+
+    function validateOptionalNumberField(input, { required = false } = {}) {
+        if (!input) return true;
+
+        let value = (input.value ?? '').toString().trim();
+        if (!value.length) {
+            if (required) {
+                showFieldNotice(input, `${getFieldLabel(input)} is required.`);
+                return false;
+            }
+            clearFieldNotice(input);
+            return true;
+        }
+
+        const cleaned = value.replace(/[^\d.]/g, '');
+        if (cleaned === '' || Number.isNaN(Number(cleaned)) || Number(cleaned) < 0) {
+            showFieldNotice(input, `${getFieldLabel(input)} must be a valid number.`);
+            return false;
+        }
+
+        if (input.value !== cleaned) {
+            input.value = cleaned;
+        }
+
+        clearFieldNotice(input);
+        return true;
+    }
+
+    function validateTripDateOrder(form) {
+        if (!form) return true;
+
+        const departure = form.querySelector('[name="departure_time"]');
+        const arrival   = form.querySelector('[name="arrival_time"]');
+        if (!departure?.value || !arrival?.value) return true;
+
+        if (new Date(arrival.value) < new Date(departure.value)) {
+            showFieldNotice(arrival, 'Arrival time must be after departure time.');
+            return false;
+        }
+
+        clearFieldNotice(arrival);
+        return true;
+    }
+
+    function setupNativeDateBubbles(form, selector = 'input[type="date"]') {
+        if (!form) return;
+        prepareForm(form);
+        form.querySelectorAll(selector).forEach(input => {
+            if (input.dataset.validateNativeDate) return;
+            input.dataset.validateNativeDate = 'true';
+            bindFieldValidation(input, validateNativeDateField);
+        });
+    }
+
+    function setupDateTimeLocalBubbles(form, selector = 'input[type="datetime-local"]') {
+        if (!form) return;
+        prepareForm(form);
+        form.querySelectorAll(selector).forEach(input => {
+            if (input.dataset.validateDateTime) return;
+            input.dataset.validateDateTime = 'true';
+            bindFieldValidation(input, validateDateTimeLocalField);
+        });
+    }
+
+    function setupOptionalNumberBubbles(form, selector = '[name="distance_km"], [name="amount"]') {
+        if (!form) return;
+        prepareForm(form);
+        form.querySelectorAll(selector).forEach(input => {
+            if (input.dataset.validateOptionalNumber) return;
+            input.dataset.validateOptionalNumber = 'true';
+            bindFieldValidation(input, validateOptionalNumberField);
+        });
+    }
+
     function validateFormBubbles(form) {
         if (!form) return false;
 
@@ -316,6 +433,41 @@
         form.querySelectorAll('[data-validate-date-text]').forEach(input => {
             if (!validateDateTextField(input, { required: true, immediate: true })) valid = false;
         });
+        form.querySelectorAll('[data-validate-native-date]').forEach(input => {
+            if (!validateNativeDateField(input, { required: true })) valid = false;
+        });
+        form.querySelectorAll('[data-validate-date-time]').forEach(input => {
+            if (!validateDateTimeLocalField(input, { required: true })) valid = false;
+        });
+        form.querySelectorAll('[data-validate-optional-number]').forEach(input => {
+            if (!validateOptionalNumberField(input, { required: true })) valid = false;
+        });
+
+        if (!valid) focusFirstBubble(form);
+        return valid;
+    }
+
+    function setupTripForm(form) {
+        if (!form) return;
+        setupRequiredBubbles(form);
+        setupNativeDateBubbles(form);
+        setupDateTimeLocalBubbles(form);
+        setupOptionalNumberBubbles(form);
+
+        form.querySelectorAll('[name="departure_time"], [name="arrival_time"]').forEach(input => {
+            if (input.dataset.tripOrderBound) return;
+            input.dataset.tripOrderBound = '1';
+            const checkOrder = () => validateTripDateOrder(form);
+            input.addEventListener('change', checkOrder);
+            input.addEventListener('blur', checkOrder);
+        });
+    }
+
+    function validateTripForm(form) {
+        if (!form) return false;
+
+        let valid = validateFormBubbles(form);
+        if (!validateTripDateOrder(form)) valid = false;
 
         if (!valid) focusFirstBubble(form);
         return valid;
@@ -390,6 +542,7 @@
     function initValidationForms() {
         document.querySelectorAll('form[data-validate="standard"]').forEach(setupRequiredBubbles);
         document.querySelectorAll('form[data-validate="driver"]').forEach(setupDriverForm);
+        document.querySelectorAll('form[data-validate="trip"]').forEach(setupTripForm);
     }
 
     if (document.readyState === 'loading') {
@@ -417,6 +570,15 @@
         validateFormBubbles,
         setupDriverForm,
         validateDriverForm,
+        validateNativeDateField,
+        validateDateTimeLocalField,
+        validateOptionalNumberField,
+        validateTripDateOrder,
+        setupNativeDateBubbles,
+        setupDateTimeLocalBubbles,
+        setupOptionalNumberBubbles,
+        setupTripForm,
+        validateTripForm,
         displayDateToIso,
         isoDateToDisplay,
         openDatePicker,

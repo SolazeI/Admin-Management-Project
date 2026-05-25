@@ -73,6 +73,8 @@ class TripTicketController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
+            $this->normalizeTripInput($request);
+
             $validated = $request->validate([
                 'trip_no'        => 'nullable|string|max:50|unique:trip_tickets,trip_no',
                 'driver_id'      => 'required|exists:drivers,id',
@@ -110,6 +112,10 @@ class TripTicketController extends Controller
                     'message' => "This driver is not available ({$driver->status}).",
                     'errors'  => ['driver_id' => ["This driver is not available ({$driver->status})."]],
                 ], 422);
+            }
+
+            if ($error = $this->assertArrivalAfterDeparture($validated)) {
+                return $error;
             }
 
             $validated           = $this->normalizeDateTimes($validated);
@@ -150,6 +156,8 @@ class TripTicketController extends Controller
             $trip        = TripTicket::with('driver')->findOrFail($id); // throws ModelNotFoundException → 404
             $oldSnapshot = $this->modelSnapshot($trip);
 
+            $this->normalizeTripInput($request);
+
             $validated = $request->validate([
                 'trip_no'        => 'required|string|max:50|unique:trip_tickets,trip_no,' . $trip->id,
                 'driver_id'      => 'required|exists:drivers,id',
@@ -175,6 +183,10 @@ class TripTicketController extends Controller
                 if ($error = $this->assertDriverNotArchived($validated['driver_id'])) {
                     return $error;
                 }
+            }
+
+            if ($error = $this->assertArrivalAfterDeparture($validated)) {
+                return $error;
             }
 
             $validated           = $this->normalizeDateTimes($validated);
@@ -569,6 +581,50 @@ class TripTicketController extends Controller
         }
 
         return Hash::check($password, $setting->value);
+    }
+
+    /** Empty strings from JSON requests are not treated as null by Laravel validators. */
+    private function normalizeTripInput(Request $request): void
+    {
+        $nullableStrings = ['trip_no', 'date_issued', 'origin', 'destination', 'departure_time', 'arrival_time', 'remarks'];
+        $merge = [];
+
+        foreach ($nullableStrings as $field) {
+            if (!$request->filled($field)) {
+                $merge[$field] = null;
+            }
+        }
+
+        foreach (['distance_km', 'amount'] as $field) {
+            $value = $request->input($field);
+            if ($value === null || $value === '') {
+                $merge[$field] = null;
+                continue;
+            }
+            $cleaned = preg_replace('/[^\d.]/', '', (string) $value);
+            $merge[$field] = $cleaned !== '' ? $cleaned : null;
+        }
+
+        $request->merge($merge);
+    }
+
+    private function assertArrivalAfterDeparture(array $validated): ?JsonResponse
+    {
+        if (empty($validated['departure_time']) || empty($validated['arrival_time'])) {
+            return null;
+        }
+
+        $departure = strtotime(str_replace('T', ' ', (string) $validated['departure_time']));
+        $arrival   = strtotime(str_replace('T', ' ', (string) $validated['arrival_time']));
+
+        if ($departure !== false && $arrival !== false && $arrival < $departure) {
+            return response()->json([
+                'message' => 'Arrival time must be after departure time.',
+                'errors'  => ['arrival_time' => ['Arrival time must be after departure time.']],
+            ], 422);
+        }
+
+        return null;
     }
 
     private function normalizeDateTimes(array $validated): array
