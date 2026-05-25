@@ -154,7 +154,6 @@
                                     @endif
 
                                     {{-- Edit (active records only) --}}
-                                    @if (!in_array($rec->status, ['Completed', 'Cancelled']))
                                         <button type="button" class="btn btn-secondary"
                                             style="padding:5px 11px; font-size:12px; gap:4px;"
                                             onclick="openEditMaint(
