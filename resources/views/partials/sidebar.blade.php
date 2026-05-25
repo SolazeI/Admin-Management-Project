@@ -1,7 +1,7 @@
 <aside class="sidebar">
     <header class="sidebar-header">
         <a href="{{ url('/dashboard') }}" class="header-logo">
-            <img src="{{ asset('images/AdminLogo.png') }}" alt="Gerardo Logo" class="logo">
+            <img src="{{ asset('Images/AdminLogo.png') }}" alt="Gerardo Logo" class="logo">
         </a>
     </header>
 

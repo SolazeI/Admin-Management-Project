@@ -12,6 +12,13 @@ function openDriverPanel(driverId) {
     modal.classList.add('modal-open');
     overlay.style.display = 'block';
     loader.style.display  = 'flex';
+    loader.innerHTML = `
+        <span class="material-symbols-outlined"
+            style="font-size:20px; margin-right:8px; animation:spin 1s linear infinite;">
+            progress_activity
+        </span>
+        Loading driver info...
+    `;
     content.style.display = 'none';
     document.body.style.overflow = 'hidden';
 
@@ -19,7 +26,7 @@ function openDriverPanel(driverId) {
         headers: { 'Accept': 'application/json' }
     })
     .then(r => {
-        if (!r.ok) throw new Error('Server error ' + r.status);
+        if (!r.ok) return r.json().then(d => Promise.reject({ status: r.status, data: d }));
         return r.json();
     })
     .then(data => {
@@ -29,8 +36,12 @@ function openDriverPanel(driverId) {
     })
     .catch(err => {
         console.error('Modal fetch error:', err);
-        loader.innerHTML =
-            '<span style="color:#ef4444; font-size:13px;">Failed to load driver info. Please try again.</span>';
+        const msg = err?.data?.message || 'We couldn\'t load this driver\'s information. Please try again.';
+        loader.innerHTML = `
+            <div style="text-align:center; color:#dc2626; font-size:13px; padding:16px;">
+                <span class="material-symbols-outlined" style="font-size:24px; display:block; margin-bottom:6px;">error</span>
+                ${msg}
+            </div>`;
     });
 }
 
@@ -94,7 +105,7 @@ function renderDriverPanel(d) {
 
     if (!trips.length) {
         document.getElementById('panelTripTable').innerHTML =
-            '<p style="font-size:12px; color:#94a3b8; text-align:center; padding:16px 0;">No trips recorded.</p>';
+            '<p style="font-size:12px; color:#94a3b8; text-align:center; padding:16px 0;">No trips recorded for this driver yet.</p>';
         return;
     }
 
@@ -157,7 +168,7 @@ function exportPanelDriver() {
 
 // ── Server Error Banner ───────────────────────────────────
 function showReportServerError(message, sub = '') {
-    let banner = document.getElementById('reportServerError');
+    const banner = document.getElementById('reportServerError');
     if (!banner) return;
     document.getElementById('reportServerErrorText').textContent = message;
     const subEl = document.getElementById('reportServerErrorSub');
@@ -172,22 +183,19 @@ function hideReportServerError() {
 
 // ── Empty State ───────────────────────────────────────────
 function showReportEmptyState(section, message) {
-    // section: 'driver' | 'maintenance'
     const tableBody = section === 'driver'
         ? document.querySelector('#driverRecordsSection .drivers-table tbody')
         : document.querySelector('#maintenanceRecordsSection .drivers-table tbody');
 
-    // Hide all real rows
     if (tableBody) {
         tableBody.querySelectorAll('tr:not(.report-empty-state-row)').forEach(r => r.style.display = 'none');
     }
 
-    // Inject or update empty state row
     let emptyRow = tableBody?.querySelector('.report-empty-state-row');
     if (!emptyRow) {
         emptyRow = document.createElement('tr');
         emptyRow.className = 'report-empty-state-row';
-        const colspan = section === 'driver' ? 6 : 6;
+        const colspan = 6;
         emptyRow.innerHTML = `<td colspan="${colspan}" class="no-data" id="${section}EmptyStateMsg"></td>`;
         tableBody?.appendChild(emptyRow);
     }
@@ -195,6 +203,7 @@ function showReportEmptyState(section, message) {
     const msgEl = document.getElementById(`${section}EmptyStateMsg`);
     if (msgEl) msgEl.textContent = message;
 }
+
 function hideReportEmptyState(section) {
     const tableBody = section === 'driver'
         ? document.querySelector('#driverRecordsSection .drivers-table tbody')
@@ -210,9 +219,10 @@ function hideReportEmptyState(section) {
 // ── HTTP Error Subtitle ───────────────────────────────────
 function httpReportErrorSubtitle(status) {
     switch (status) {
-        case 422: return 'The request contained invalid data.';
+        case 422: return 'Please check your search input and try again.';
+        case 404: return 'No matching records were found.';
         case 500: return 'An unexpected server error occurred. Please try again later.';
-        default:  return `Server responded with status ${status}.`;
+        default:  return `Server responded with status ${status}. Please try again.`;
     }
 }
 
@@ -245,11 +255,11 @@ async function applyDriverFilters(query) {
     hideReportEmptyState('driver');
 
     if (checked.length === 0) {
-        showReportEmptyState('driver', 'No statuses selected. Use the filter to choose at least one.');
+        showReportEmptyState('driver', 'No statuses selected. Please choose at least one filter to see results.');
         return;
     }
 
-    // Status-only filter (no search query) — client-side, data already in DOM
+    // Status-only filter — client-side, data already in DOM
     if (!query) {
         let anyVisible = false;
         document.querySelectorAll('#driverRecordsSection .drivers-table tbody tr:not(.report-empty-state-row)')
@@ -261,7 +271,8 @@ async function applyDriverFilters(query) {
                 if (visible) anyVisible = true;
             });
         if (!anyVisible) {
-            showReportEmptyState('driver', `No drivers found with status: ${checked.join(', ')}.`);
+            const label = checked.length === 1 ? `"${checked[0]}"` : checked.map(s => `"${s}"`).join(' or ');
+            showReportEmptyState('driver', `No drivers found with status: ${label}.`);
         }
         return;
     }
@@ -274,15 +285,15 @@ async function applyDriverFilters(query) {
         const data = await res.json().catch(() => null);
 
         if (res.status === 404) {
-            showReportEmptyState('driver', data?.message || `No drivers found matching "${query}".`);
+            showReportEmptyState('driver', data?.message || `No drivers found matching "${query}". Try a different name or license number.`);
             return;
         }
         if (res.status === 422) {
-            showReportServerError(data?.message || 'Invalid search input.', httpReportErrorSubtitle(422));
+            showReportServerError(data?.message || 'Please enter a valid search term.', httpReportErrorSubtitle(422));
             return;
         }
         if (!res.ok) {
-            showReportServerError(data?.message || 'Search failed.', httpReportErrorSubtitle(res.status));
+            showReportServerError(data?.message || 'Search failed. Please try again.', httpReportErrorSubtitle(res.status));
             return;
         }
 
@@ -300,16 +311,19 @@ async function applyDriverFilters(query) {
             });
 
         if (!anyVisible) {
-            const statusLabel = checked.length < 2 ? checked.join(' / ') : null;
+            const statusLabel = checked.length === 1 ? `"${checked[0]}"` : null;
             showReportEmptyState('driver',
                 statusLabel
-                    ? `No "${statusLabel}" drivers match "${query}".`
-                    : `No drivers found matching "${query}".`
+                    ? `No ${statusLabel} drivers match "${query}".`
+                    : `No drivers match "${query}" with the selected status filters.`
             );
         }
     } catch (err) {
         console.error('Driver search error:', err);
-        showReportServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+        showReportServerError(
+            'Unable to reach the server.',
+            'Please check your internet connection and try again.'
+        );
     }
 }
 
@@ -321,14 +335,13 @@ async function applyMaintenanceFilters(query) {
     hideReportEmptyState('maintenance');
 
     if (checked.length === 0) {
-        showReportEmptyState('maintenance', 'No statuses selected. Use the filter to choose at least one.');
+        showReportEmptyState('maintenance', 'No statuses selected. Please choose at least one filter to see results.');
         return;
     }
 
     // Status-only — client-side
     if (!query) {
-        const statusMap = { pending: 'Pending', inprogress: 'In-Progress', completed: 'Completed', cancelled: 'Cancelled' };
-        let anyVisible  = false;
+        let anyVisible = false;
         document.querySelectorAll('#maintenanceRecordsSection .drivers-table tbody tr:not(.report-empty-state-row)')
             .forEach(row => {
                 const badge = row.querySelector('.status-badge');
@@ -341,7 +354,7 @@ async function applyMaintenanceFilters(query) {
                 if (visible) anyVisible = true;
             });
         if (!anyVisible) {
-            showReportEmptyState('maintenance', 'No maintenance records match the selected filters.');
+            showReportEmptyState('maintenance', 'No maintenance records match the selected status filters.');
         }
         return;
     }
@@ -355,11 +368,15 @@ async function applyMaintenanceFilters(query) {
         const data = await res.json().catch(() => null);
 
         if (res.status === 404) {
-            showReportEmptyState('maintenance', data?.message || `No maintenance records match "${query}".`);
+            showReportEmptyState('maintenance', data?.message || `No maintenance records found matching "${query}".`);
+            return;
+        }
+        if (res.status === 422) {
+            showReportServerError(data?.message || 'Please enter a valid search term.', httpReportErrorSubtitle(422));
             return;
         }
         if (!res.ok) {
-            showReportServerError(data?.message || 'Search failed.', httpReportErrorSubtitle(res.status));
+            showReportServerError(data?.message || 'Search failed. Please try again.', httpReportErrorSubtitle(res.status));
             return;
         }
 
@@ -379,22 +396,29 @@ async function applyMaintenanceFilters(query) {
             });
 
         if (!anyVisible) {
-            showReportEmptyState('maintenance', `No maintenance records match "${query}".`);
+            showReportEmptyState('maintenance', data?.message || `No maintenance records match "${query}" with the selected filters.`);
         }
     } catch (err) {
         console.error('Maintenance search error:', err);
-        showReportServerError('Unable to connect to the server.', 'Please check your connection and try again.');
+        showReportServerError(
+            'Unable to reach the server.',
+            'Please check your internet connection and try again.'
+        );
     }
 }
 
 function clearReportFilters() {
     document.querySelectorAll('.driver-report-filter, .maint-report-filter').forEach(cb => cb.checked = true);
-    document.querySelector('.search-input').value = '';
+    const searchInput = document.querySelector('.search-input');
+    if (searchInput) searchInput.value = '';
+    hideReportServerError();
+    hideReportEmptyState('driver');
+    hideReportEmptyState('maintenance');
     applyReportFilters();
     updateMaintenanceExportLink();
 }
 
-// ── Maintenance Export (filter-aware) ────────────────
+// ── Maintenance Export (filter-aware) ─────────────────────
 function updateMaintenanceExportLink() {
     const exportBtn = document.getElementById('maintenanceExportBtn');
     if (!exportBtn) return;
@@ -404,23 +428,23 @@ function updateMaintenanceExportLink() {
     exportBtn.href = `${window.exportMaintenanceBase}?${params}`;
 }
 
-// ── Tab switching ────────────────────────────────────
+// ── Tab switching ──────────────────────────────────────────
 function setTab(tab) {
     window._reportTab = tab;
-    var isDriver = (tab === 'driver');
-    document.getElementById('driverRecordsSection').style.display     = isDriver ? '' : 'none';
-    document.getElementById('maintenanceRecordsSection').style.display = isDriver ? 'none' : '';
-    document.getElementById('tabDriverBtn').className                  = isDriver ? 'btn btn-primary' : 'btn btn-secondary';
-    document.getElementById('tabMaintenanceBtn').className             = isDriver ? 'btn btn-secondary' : 'btn btn-primary';
-    document.getElementById('driverFilterOptions').style.display       = isDriver ? '' : 'none';
-    document.getElementById('maintFilterOptions').style.display        = isDriver ? 'none' : '';
+    const isDriver = (tab === 'driver');
+    document.getElementById('driverRecordsSection').style.display      = isDriver ? '' : 'none';
+    document.getElementById('maintenanceRecordsSection').style.display  = isDriver ? 'none' : '';
+    document.getElementById('tabDriverBtn').className                   = isDriver ? 'btn btn-primary' : 'btn btn-secondary';
+    document.getElementById('tabMaintenanceBtn').className              = isDriver ? 'btn btn-secondary' : 'btn btn-primary';
+    document.getElementById('driverFilterOptions').style.display        = isDriver ? '' : 'none';
+    document.getElementById('maintFilterOptions').style.display         = isDriver ? 'none' : '';
     clearReportFilters();
 }
 
-document.getElementById('tabDriverBtn').addEventListener('click',      function () { setTab('driver'); });
-document.getElementById('tabMaintenanceBtn').addEventListener('click', function () { setTab('maintenance'); });
+document.getElementById('tabDriverBtn').addEventListener('click',      () => setTab('driver'));
+document.getElementById('tabMaintenanceBtn').addEventListener('click', () => setTab('maintenance'));
 
-// ── Filter panel toggle ──────────────────────────────
+// ── Filter panel toggle ────────────────────────────────────
 const filterBtn   = document.getElementById('reportFilterBtn');
 const filterPanel = document.getElementById('reportFilterPanel');
 
@@ -435,10 +459,10 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// ── Search ────────────────────────────────────────────────
+// ── Search ─────────────────────────────────────────────────
 document.getElementById('reportSearch').addEventListener('input', scheduleReportFilter);
 
-// ── Checkboxes ────────────────────────────────────────────
+// ── Checkboxes ─────────────────────────────────────────────
 document.querySelectorAll('.driver-report-filter').forEach(cb => {
     cb.addEventListener('change', applyReportFilters);
 });
@@ -449,5 +473,5 @@ document.querySelectorAll('.maint-report-filter').forEach(cb => {
     });
 });
 
-// ── Init ─────────────────────────────────────────────
+// ── Init ───────────────────────────────────────────────────
 setTab('driver');
