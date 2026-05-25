@@ -1,5 +1,3 @@
-const FV = () => window.FormValidation;
-
 // ── CSRF Token ────────────────────────────────────────────
 function getCsrf() {
     return document.querySelector('meta[name="csrf-token"]')?.content
@@ -8,26 +6,19 @@ function getCsrf() {
 }
 
 // ── Notice Line ───────────────────────────────────────────
-
 function showNoticeError(message) {
     let notice = document.getElementById('fleetNoticeError');
-
     if (!notice) {
         notice = document.createElement('div');
         notice.id = 'fleetNoticeError';
         notice.className = 'notice-line';
         notice.style.cssText = 'border-left-color:#dc2626; background:#fef2f2; color:#991b1b; margin-bottom:14px;';
-
-        // Insert it right after the content-header divider
         const header = document.querySelector('.content-header.app-divider');
         header.insertAdjacentElement('afterend', notice);
     }
-
     notice.textContent = message;
     notice.style.display = '';
     notice.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-    // Auto-dismiss after 6 seconds
     clearTimeout(notice._dismissTimer);
     notice._dismissTimer = setTimeout(() => {
         notice.style.display = 'none';
@@ -35,14 +26,11 @@ function showNoticeError(message) {
 }
 
 // ── Error Helpers ─────────────────────────────────────────
-
 function showFormError(boxId, listId, errors) {
     const box  = document.getElementById(boxId);
     const list = document.getElementById(listId);
     if (!box || !list) return;
-
     list.innerHTML = '';
-
     if (Array.isArray(errors)) {
         errors.forEach(msg => {
             const li = document.createElement('li');
@@ -60,7 +48,6 @@ function showFormError(boxId, listId, errors) {
         li.textContent = errors;
         list.appendChild(li);
     }
-
     box.style.display = 'block';
     box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -75,21 +62,17 @@ function showInlineError(form, errors) {
     const box  = form.querySelector('.fleet-form-error');
     const list = form.querySelector('.fleet-form-error-list');
     if (!box || !list) return;
-
     list.innerHTML = '';
-
     const messages = Array.isArray(errors)
         ? errors
         : typeof errors === 'object'
             ? Object.values(errors).flat()
             : [errors];
-
     messages.forEach(msg => {
         const li = document.createElement('li');
         li.textContent = msg;
         list.appendChild(li);
     });
-
     box.style.display = 'block';
     box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -100,7 +83,6 @@ function clearInlineError(form) {
 }
 
 // ── Add Fleet Modal ───────────────────────────────────────
-
 document.getElementById('addFleetBtn').addEventListener('click', () => {
     clearFormError('addFleetError');
     document.getElementById('addFleetModal').classList.add('show');
@@ -110,14 +92,11 @@ function closeFleetModal(id = 'addFleetModal') {
     const modal = document.getElementById(id);
     if (!modal) return;
     modal.classList.remove('show');
-
     if (id === 'addFleetModal') {
         const form = document.getElementById('addFleetForm');
         form?.reset();
         clearFormError('addFleetError');
-        FV()?.clearFormFieldNotices(form);
     }
-
     if (id === 'deleteTruckModal2') {
         document.getElementById('deleteTruckPassword').value = '';
         const errEl = document.getElementById('deleteTruckPasswordError');
@@ -135,22 +114,9 @@ document.getElementById('deleteTruckModal1').addEventListener('click', function 
 });
 
 // ── Add Fleet Submit ──────────────────────────────────────
-
-const addFleetForm = document.getElementById('addFleetForm');
-if (addFleetForm) FV()?.setupRequiredBubbles(addFleetForm);
-
-document.querySelectorAll('.fleet-edit-form').forEach(form => FV()?.setupRequiredBubbles(form));
-
-addFleetForm?.addEventListener('submit', async function (e) {
+document.getElementById('addFleetForm')?.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearFormError('addFleetError');
-
-    if (!FV()?.validateFormBubbles(this)) {
-        showFormError('addFleetError', 'addFleetErrorList', [
-            'Please fix the highlighted fields before submitting.',
-        ]);
-        return;
-    }
 
     const formData = new FormData(this);
     const payload  = Object.fromEntries(formData.entries());
@@ -165,7 +131,6 @@ addFleetForm?.addEventListener('submit', async function (e) {
             },
             body: JSON.stringify(payload),
         });
-
         if (response.ok) {
             closeFleetModal('addFleetModal');
             location.reload();
@@ -188,16 +153,14 @@ addFleetForm?.addEventListener('submit', async function (e) {
 });
 
 // ── Edit Fleet Submit ─────────────────────────────────────
-
 document.querySelectorAll('.fleet-edit-form').forEach(form => {
     // Clear inline error whenever the details panel is opened
     const details = form.closest('details');
     if (details) {
         details.addEventListener('toggle', () => {
             if (details.open) {
-            clearInlineError(form);
-            FV()?.clearFormFieldNotices(form);
-        }
+                clearInlineError(form);
+            }
         });
     }
 
@@ -205,20 +168,13 @@ document.querySelectorAll('.fleet-edit-form').forEach(form => {
         e.preventDefault();
         clearInlineError(this);
 
-        if (!FV()?.validateFormBubbles(this)) {
-            showInlineError(this, 'Please fix the highlighted fields before submitting.');
-            return;
-        }
-
         const truckId  = this.dataset.id;
         const formData = new FormData(this);
         const payload  = Object.fromEntries(formData.entries());
-
-        // Remove Laravel _token from JSON payload — sent via header instead
         delete payload._token;
 
         const saveBtn = this.querySelector('.fleet-save-btn');
-        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
 
         try {
             const response = await fetch(`/fleet/${truckId}`, {
@@ -230,7 +186,6 @@ document.querySelectorAll('.fleet-edit-form').forEach(form => {
                 },
                 body: JSON.stringify(payload),
             });
-
             if (response.ok) {
                 location.reload();
             } else {
@@ -265,15 +220,10 @@ function confirmDeleteTruck(truckId, truckCode) {
 
 function proceedToDeleteTruckPassword() {
     closeFleetModal('deleteTruckModal1');
-
-    // Reset password field and error before opening
     document.getElementById('deleteTruckPassword').value = '';
     const errEl = document.getElementById('deleteTruckPasswordError');
     if (errEl) errEl.style.display = 'none';
-
     document.getElementById('deleteTruckModal2').classList.add('show');
-
-    // Auto-focus the password input
     setTimeout(() => document.getElementById('deleteTruckPassword').focus(), 100);
 }
 
@@ -281,15 +231,12 @@ async function confirmTruckDeleteAction() {
     const password = document.getElementById('deleteTruckPassword').value.trim();
     const errEl    = document.getElementById('deleteTruckPasswordError');
     const errText  = document.getElementById('deleteTruckPasswordErrorText');
-
     if (!password) {
         errText.textContent = 'Please enter the admin password.';
         errEl.style.display = 'flex';
         return;
     }
-
     errEl.style.display = 'none';
-
     try {
         const response = await fetch(`/fleet/${pendingDeleteId}/delete`, {
             method: 'POST',
@@ -300,23 +247,18 @@ async function confirmTruckDeleteAction() {
             },
             body: JSON.stringify({ password }),
         });
-
         if (response.ok) {
             closeFleetModal('deleteTruckModal2');
             location.reload();
         } else {
             const data = await response.json().catch(() => null);
-
             if (response.status === 403) {
-                // Wrong password — stay on modal, show inline error
                 errText.textContent = data?.message || 'Incorrect admin password.';
                 errEl.style.display = 'flex';
                 document.getElementById('deleteTruckPassword').value = '';
                 document.getElementById('deleteTruckPassword').focus();
                 return;
             }
-
-            // 422 / 404 / 500 — close modal, show notice line
             closeFleetModal('deleteTruckModal2');
             showNoticeError(data?.message || 'Could not delete this truck. Please try again.');
         }
@@ -331,17 +273,14 @@ async function confirmTruckDeleteAction() {
     }
 }
 
-// Allow Enter key to confirm from the password field
 document.getElementById('deleteTruckPassword').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') confirmTruckDeleteAction();
 });
 
-// Close on backdrop click
 document.getElementById('deleteTruckModal2').addEventListener('click', function (e) {
     if (e.target === this) closeFleetModal('deleteTruckModal2');
 });
 
-// ── Search ────────────────────────────────────────────────
 // ── Server Error Banner ───────────────────────────────────
 function showFleetServerError(message, sub = '') {
     const banner = document.getElementById('fleetServerError');
@@ -353,6 +292,7 @@ function showFleetServerError(message, sub = '') {
     banner.style.display = 'flex';
     banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
 function hideFleetServerError() {
     const banner = document.getElementById('fleetServerError');
     if (banner) banner.style.display = 'none';
@@ -366,6 +306,7 @@ function showFleetEmptyState(message) {
     if (msg) msg.textContent = message;
     if (el)  el.style.display = '';
 }
+
 function hideFleetEmptyState() {
     const el = document.getElementById('fleetEmptyState');
     if (el) el.style.display = 'none';
@@ -383,10 +324,10 @@ function httpFleetErrorSubtitle(status) {
 // ── Status value → proper-cased label ────────────────────
 function normalizeFleetStatusValue(value) {
     const map = {
-        available:  'Available',
-        intransit:  'In-Transit',
-        maintenance:'Maintenance',
-        inactive:   'Inactive',
+        available:   'Available',
+        intransit:   'In-Transit',
+        maintenance: 'Maintenance',
+        inactive:    'Inactive',
     };
     return map[value] ?? value;
 }

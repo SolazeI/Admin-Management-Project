@@ -1,5 +1,3 @@
-const FV = () => window.FormValidation;
-
 // ── CSRF Token ────────────────────────────────────────────
 
 function getCsrf() {
@@ -13,40 +11,6 @@ function getCsrf() {
 function showFormError(boxId, listId, errors) {
     const box  = document.getElementById(boxId);
     const list = document.getElementById(listId);
-    if (!box || !list) return;
-
-    list.innerHTML = '';
-
-    if (Array.isArray(errors)) {
-        errors.forEach(msg => {
-            const li = document.createElement('li');
-            li.textContent = msg;
-            list.appendChild(li);
-        });
-    } else if (typeof errors === 'object') {
-        Object.values(errors).flat().forEach(msg => {
-            const li = document.createElement('li');
-            li.textContent = msg;
-            list.appendChild(li);
-        });
-    } else {
-        const li = document.createElement('li');
-        li.textContent = errors;
-        list.appendChild(li);
-    }
-
-    box.style.display = 'block';
-    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function clearFormError(boxId) {
-    const box = document.getElementById(boxId);
-    if (box) box.style.display = 'none';
-}
-
-function showInlineError(form, errors) {
-    const box  = form.querySelector('.editMaintError');
-    const list = form.querySelector('.editMaintErrorList');
     if (!box || !list) return;
 
     list.innerHTML = '';
@@ -67,8 +31,8 @@ function showInlineError(form, errors) {
     box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function clearInlineError(form) {
-    const box = form.querySelector('.editMaintError');
+function clearFormError(boxId) {
+    const box = document.getElementById(boxId);
     if (box) box.style.display = 'none';
 }
 
@@ -86,26 +50,10 @@ function clearPasswordError(errorId) {
     if (el) el.style.display = 'none';
 }
 
-function runFormBubbleValidation(form) {
-    const fv = FV();
-    if (!fv || typeof fv.validateFormBubbles !== 'function') return true;
-    return fv.validateFormBubbles(form);
-}
-
-function mapServerErrorsToForm(form, errors) {
-    if (!form || !errors || typeof errors !== 'object') return;
-    const fv = FV();
-    Object.entries(errors).forEach(([field, messages]) => {
-        const input = form.querySelector(`[name="${field}"]`);
-        const msg = Array.isArray(messages) ? messages[0] : messages;
-        if (input && msg && fv) fv.showFieldNotice(input, msg);
-    });
-}
-
 /** JSON payloads must omit empty optionals — "" fails Laravel nullable|numeric|date. */
 function buildMaintenancePayload(form) {
     const formData = new FormData(form);
-    const payload = Object.fromEntries(formData.entries());
+    const payload  = Object.fromEntries(formData.entries());
     delete payload._token;
 
     if (!payload.start_date) delete payload.start_date;
@@ -136,7 +84,6 @@ function openEditMaint(id, truckId, startDate, issue, notes, cost) {
     document.getElementById('editMaintNotes').value     = notes;
     document.getElementById('editMaintCost').value      = cost;
     clearFormError('editMaintError');
-    FV()?.clearFormFieldNotices(document.getElementById('editMaintenanceForm'));
     openModal('editMaintenanceModal');
 }
 
@@ -148,27 +95,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function initializeEventListeners() {
 
+    // ── Add Maintenance form ──────────────────────────────
     const addMaintenanceForm = document.getElementById('addMaintenanceForm');
     if (addMaintenanceForm) {
-        FV()?.setupRequiredBubbles(addMaintenanceForm);
         addMaintenanceForm.addEventListener('submit', handleAddMaintenance);
     }
 
+    // ── Edit Maintenance form ─────────────────────────────
     const editMaintenanceForm = document.getElementById('editMaintenanceForm');
-    if (editMaintenanceForm) FV()?.setupRequiredBubbles(editMaintenanceForm);
-
     editMaintenanceForm?.addEventListener('submit', async function (e) {
         e.preventDefault();
         clearFormError('editMaintError');
 
-        if (!runFormBubbleValidation(this)) {
-            showFormError('editMaintError', 'editMaintErrorList', [
-                'Please fix the highlighted fields before submitting.',
-            ]);
-            return;
-        }
-
-        const id = document.getElementById('editMaintId').value;
+        const id      = document.getElementById('editMaintId').value;
         const payload = buildMaintenancePayload(this);
 
         const btn = this.querySelector('[type="submit"]');
@@ -191,7 +130,6 @@ function initializeEventListeners() {
             } else {
                 const data = await response.json().catch(() => null);
                 if (data?.errors) {
-                    mapServerErrorsToForm(this, data.errors);
                     showFormError('editMaintError', 'editMaintErrorList', data.errors);
                 } else {
                     showFormError('editMaintError', 'editMaintErrorList', [
@@ -206,20 +144,16 @@ function initializeEventListeners() {
         }
     });
 
-    // Add modal
-    const addMaintenanceBtn = document.getElementById('addMaintenanceBtn');
-    if (addMaintenanceBtn) {
-        addMaintenanceBtn.addEventListener('click', () => {
-            clearFormError('addMaintError');
-            openModal('addMaintenanceModal');
-        });
-    }
+    // ── Add modal button ──────────────────────────────────
+    document.getElementById('addMaintenanceBtn')?.addEventListener('click', () => {
+        clearFormError('addMaintError');
+        openModal('addMaintenanceModal');
+    });
 
-    // Archived modal
-    const archivedMaintenanceBtn = document.getElementById('archivedMaintenanceBtn');
-    if (archivedMaintenanceBtn) {
-        archivedMaintenanceBtn.addEventListener('click', () => openModal('archivedMaintenanceModal'));
-    }
+    // ── Archived modal button ─────────────────────────────
+    document.getElementById('archivedMaintenanceBtn')?.addEventListener('click', () => {
+        openModal('archivedMaintenanceModal');
+    });
 
     // ── Transition forms (Start / Complete / Cancel) ──────
     document.querySelectorAll('form[action*="/transition"]').forEach(form => {
@@ -282,32 +216,26 @@ function initializeEventListeners() {
         });
     });
 
-    // Search
-    const maintSearch = document.getElementById('maintSearch');
-    if (maintSearch) {
-        maintSearch.addEventListener('input', function () {
-            clearTimeout(_maintFilterDebounce);
-            _maintFilterDebounce = setTimeout(applyMaintFilters, 300);
-        });
-    }
+    // ── Search ────────────────────────────────────────────
+    document.getElementById('maintSearch')?.addEventListener('input', function () {
+        clearTimeout(_maintFilterDebounce);
+        _maintFilterDebounce = setTimeout(applyMaintFilters, 300);
+    });
 
-    // Archived search
-    const archivedMaintSearch = document.getElementById('archivedMaintSearch');
-    if (archivedMaintSearch) {
-        archivedMaintSearch.addEventListener('input', function () {
-            const q = this.value.trim().toLowerCase();
-            document.querySelectorAll('#archivedMaintTableBody tr').forEach(row => {
-                row.style.display = (!q || row.textContent.toLowerCase().includes(q)) ? '' : 'none';
-            });
+    // ── Archived search ───────────────────────────────────
+    document.getElementById('archivedMaintSearch')?.addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        document.querySelectorAll('#archivedMaintTableBody tr').forEach(row => {
+            row.style.display = (!q || row.textContent.toLowerCase().includes(q)) ? '' : 'none';
         });
-    }
+    });
 
-    // Status filter checkboxes
+    // ── Status filter checkboxes ──────────────────────────
     document.querySelectorAll('.maint-status-filter').forEach(cb => {
         cb.addEventListener('change', applyMaintFilters);
     });
 
-    // Filter panel toggle
+    // ── Filter panel toggle ───────────────────────────────
     const maintFilterBtn   = document.getElementById('maintFilterBtn');
     const maintFilterPanel = document.getElementById('maintFilterPanel');
     if (maintFilterBtn && maintFilterPanel) {
@@ -322,7 +250,7 @@ function initializeEventListeners() {
         });
     }
 
-    // Close modals on backdrop click
+    // ── Close modals on backdrop click ────────────────────
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', function (e) {
             const noBackdropClose = ['editTripModal', 'addTripModal', 'editMaintenanceModal', 'addMaintenanceModal'];
@@ -332,7 +260,7 @@ function initializeEventListeners() {
         });
     });
 
-    // Clear password errors on typing
+    // ── Clear password errors on typing ───────────────────
     document.getElementById('maintArchivePassword')
         ?.addEventListener('input', () => clearPasswordError('maintArchivePasswordError'));
 
@@ -352,27 +280,22 @@ function openModal(modalId) {
 
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.style.overflow = 'auto';
+    if (!modal) return;
+    modal.classList.remove('show');
+    document.body.style.overflow = 'auto';
 
-        if (modalId === 'addMaintenanceModal') {
-            const form = document.getElementById('addMaintenanceForm');
-            form?.reset();
-            clearFormError('addMaintError');
-            FV()?.clearFormFieldNotices(form);
-        } else if (modalId === 'maintArchiveWarning2') {
-            document.getElementById('maintArchivePassword').value = '';
-            clearPasswordError('maintArchivePasswordError');
-        } else if (modalId === 'maintDeleteWarning2') {
-            document.getElementById('maintDeletePassword').value = '';
-            clearPasswordError('maintDeletePasswordError');
-        } else if (modalId === 'editMaintenanceModal') {
-            const form = document.getElementById('editMaintenanceForm');
-            form?.reset();
-            clearFormError('editMaintError');
-            FV()?.clearFormFieldNotices(form);
-        }
+    if (modalId === 'addMaintenanceModal') {
+        document.getElementById('addMaintenanceForm')?.reset();
+        clearFormError('addMaintError');
+    } else if (modalId === 'maintArchiveWarning2') {
+        document.getElementById('maintArchivePassword').value = '';
+        clearPasswordError('maintArchivePasswordError');
+    } else if (modalId === 'maintDeleteWarning2') {
+        document.getElementById('maintDeletePassword').value = '';
+        clearPasswordError('maintDeletePasswordError');
+    } else if (modalId === 'editMaintenanceModal') {
+        document.getElementById('editMaintenanceForm')?.reset();
+        clearFormError('editMaintError');
     }
 }
 
@@ -385,13 +308,6 @@ function closeMaintenanceModal() {
 async function handleAddMaintenance(e) {
     e.preventDefault();
     clearFormError('addMaintError');
-
-    if (!runFormBubbleValidation(e.target)) {
-        showFormError('addMaintError', 'addMaintErrorList', [
-            'Please fix the highlighted fields before submitting.',
-        ]);
-        return;
-    }
 
     const payload = buildMaintenancePayload(e.target);
 
@@ -412,7 +328,6 @@ async function handleAddMaintenance(e) {
         } else {
             const data = await response.json().catch(() => null);
             if (data?.errors) {
-                mapServerErrorsToForm(e.target, data.errors);
                 showFormError('addMaintError', 'addMaintErrorList', data.errors);
             } else {
                 showFormError('addMaintError', 'addMaintErrorList', [
@@ -428,55 +343,8 @@ async function handleAddMaintenance(e) {
     }
 }
 
-// ── Edit Maintenance ──────────────────────────────────────
-
-async function handleEditMaintenance(e) {
-    e.preventDefault();
-
-    const form     = e.target;
-    const formData = new FormData(form);
-    const payload  = Object.fromEntries(formData.entries());
-    delete payload._token;
-
-    clearInlineError(form);
-
-    const saveBtn = form.querySelector('[type="submit"]');
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
-
-    try {
-        const response = await fetch(form.action, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept':       'application/json',
-                'X-CSRF-TOKEN': getCsrf(),
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (response.ok) {
-            location.reload();
-        } else {
-            const data = await response.json().catch(() => null);
-            if (data?.errors) {
-                showInlineError(form, data.errors);
-            } else {
-                showInlineError(form, [
-                    data?.message || 'Something went wrong. Please try again.',
-                ]);
-            }
-        }
-    } catch (error) {
-        console.error('Error updating maintenance record:', error);
-        showInlineError(form, [
-            'Unable to connect to the server. Please check your connection and try again.',
-        ]);
-    } finally {
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Changes'; }
-    }
-}
-
 // ── Server Error Banner ───────────────────────────────────
+
 function showMaintServerError(message, sub = '') {
     const banner = document.getElementById('maintServerError');
     const text   = document.getElementById('maintServerErrorText');
@@ -487,12 +355,14 @@ function showMaintServerError(message, sub = '') {
     banner.style.display = 'flex';
     banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
 function hideMaintServerError() {
     const banner = document.getElementById('maintServerError');
     if (banner) banner.style.display = 'none';
 }
 
 // ── Empty State Row ───────────────────────────────────────
+
 function showMaintEmptyState(message) {
     document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
         .forEach(r => r.style.display = 'none');
@@ -501,12 +371,14 @@ function showMaintEmptyState(message) {
     if (emptyMsg) emptyMsg.textContent = message;
     if (emptyRow) emptyRow.style.display = '';
 }
+
 function hideMaintEmptyState() {
     const emptyRow = document.getElementById('maintEmptyStateRow');
     if (emptyRow) emptyRow.style.display = 'none';
 }
 
 // ── HTTP Error Subtitle ───────────────────────────────────
+
 function httpMaintErrorSubtitle(status) {
     switch (status) {
         case 403: return 'You do not have permission to perform this action.';
@@ -518,6 +390,7 @@ function httpMaintErrorSubtitle(status) {
 }
 
 // ── Status value → proper-cased label ────────────────────
+
 function normalizeMaintStatusValue(value) {
     const map = {
         pending:    'Pending',
@@ -529,12 +402,14 @@ function normalizeMaintStatusValue(value) {
 }
 
 // ── Restore all data rows ─────────────────────────────────
+
 function restoreAllMaintRows() {
     document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
         .forEach(r => r.style.display = '');
 }
 
 // ── Main Filter Function ──────────────────────────────────
+
 let _maintFilterDebounce = null;
 
 async function applyMaintFilters() {
@@ -559,6 +434,7 @@ async function applyMaintFilters() {
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
             });
             const data = await response.json().catch(() => null);
+
             if (response.status === 404) {
                 document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
                     .forEach(r => r.style.display = 'none');
@@ -569,6 +445,7 @@ async function applyMaintFilters() {
                 showMaintServerError(data?.message || 'Filter failed.', httpMaintErrorSubtitle(response.status));
                 return;
             }
+
             const resultIds = new Set((data.data ?? []).map(r => String(r.id)));
             let anyVisible  = false;
             document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
@@ -577,9 +454,7 @@ async function applyMaintFilters() {
                     row.style.display = visible ? '' : 'none';
                     if (visible) anyVisible = true;
                 });
-            if (!anyVisible) {
-                showMaintEmptyState(`No maintenance records found for: ${checked.join(', ')}.`);
-            }
+            if (!anyVisible) showMaintEmptyState(`No maintenance records found for: ${checked.join(', ')}.`);
         } catch (err) {
             console.error('Maintenance filter error:', err);
             showMaintServerError('Unable to connect to the server.', 'Please check your connection and try again.');
@@ -593,6 +468,7 @@ async function applyMaintFilters() {
             headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
         });
         const data = await response.json().catch(() => null);
+
         if (response.status === 404) {
             document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
                 .forEach(r => r.style.display = 'none');
@@ -607,13 +483,14 @@ async function applyMaintFilters() {
             showMaintServerError(data?.message || 'Search failed.', httpMaintErrorSubtitle(response.status));
             return;
         }
+
         const resultIds = new Set((data.data ?? []).map(r => String(r.id)));
         let anyVisible  = false;
         document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
             .forEach(row => {
-                const maintId       = String(row.dataset.maintId ?? '');
-                const rowStatus     = row.dataset.status ?? '';
-                const inSearch      = resultIds.has(maintId);
+                const maintId        = String(row.dataset.maintId ?? '');
+                const rowStatus      = row.dataset.status ?? '';
+                const inSearch       = resultIds.has(maintId);
                 const inStatusFilter = Boolean(
                     checked.find(s => s.toLowerCase().replace(/-/g, '') === rowStatus)
                 );
@@ -621,6 +498,7 @@ async function applyMaintFilters() {
                 row.style.display = visible ? '' : 'none';
                 if (visible) anyVisible = true;
             });
+
         if (!anyVisible) {
             document.querySelectorAll('.drivers-table tbody tr:not(#maintEmptyStateRow)')
                 .forEach(r => r.style.display = 'none');

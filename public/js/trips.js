@@ -1,5 +1,3 @@
-const FV = () => window.FormValidation;
-
 // ── CSRF Token ────────────────────────────────────────────
 function getCsrf() {
     return document.querySelector('meta[name="csrf-token"]')?.content
@@ -37,34 +35,6 @@ function clearFormError(boxId) {
     if (box) box.style.display = 'none';
 }
 
-function showInlineError(form, errors) {
-    const box  = form.querySelector('.trip-form-error');
-    const list = form.querySelector('.trip-form-error-list');
-    if (!box || !list) return;
-
-    list.innerHTML = '';
-
-    const messages = Array.isArray(errors)
-        ? errors
-        : typeof errors === 'object'
-            ? Object.values(errors).flat()
-            : [errors];
-
-    messages.forEach(msg => {
-        const li = document.createElement('li');
-        li.textContent = msg;
-        list.appendChild(li);
-    });
-
-    box.style.display = 'block';
-    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function clearInlineError(form) {
-    const box = form.querySelector('.trip-form-error');
-    if (box) box.style.display = 'none';
-}
-
 function showPasswordError(errorId, textId, message) {
     const el   = document.getElementById(errorId);
     const text = document.getElementById(textId);
@@ -79,35 +49,17 @@ function clearPasswordError(errorId) {
     if (el) el.style.display = 'none';
 }
 
-function runTripFormValidation(form) {
-    const fv = FV();
-    if (!fv || typeof fv.validateTripForm !== 'function') {
-        return fv?.validateFormBubbles?.(form) ?? true;
-    }
-    return fv.validateTripForm(form);
-}
-
-function mapServerErrorsToForm(form, errors) {
-    if (!form || !errors || typeof errors !== 'object') return;
-    const fv = FV();
-    Object.entries(errors).forEach(([field, messages]) => {
-        const input = form.querySelector(`[name="${field}"]`);
-        const msg = Array.isArray(messages) ? messages[0] : messages;
-        if (input && msg && fv) fv.showFieldNotice(input, msg);
-    });
-}
-
 /** Omit empty optionals so nullable Laravel rules pass on JSON requests. */
 function buildTripPayload(form) {
     const formData = new FormData(form);
-    const payload = Object.fromEntries(formData.entries());
+    const payload  = Object.fromEntries(formData.entries());
     delete payload._token;
 
-    ['date_issued', 'origin', 'destination', 'departure_time', 'arrival_time', 'remarks', 'trip_no'].forEach((field) => {
+    ['date_issued', 'origin', 'destination', 'departure_time', 'arrival_time', 'remarks', 'trip_no'].forEach(field => {
         if (payload[field] === '' || payload[field] == null) delete payload[field];
     });
 
-    ['distance_km', 'amount'].forEach((field) => {
+    ['distance_km', 'amount'].forEach(field => {
         const raw = (payload[field] ?? '').toString().trim();
         if (!raw) {
             delete payload[field];
@@ -149,8 +101,8 @@ function showTripEmptyState(message) {
     const emptyMsg = document.getElementById('tripEmptyStateMsg');
     const noData   = document.getElementById('tripNoDataRow');
 
-    if (noData)   noData.style.display = 'none';
-    if (emptyMsg) emptyMsg.textContent  = message;
+    if (noData)   noData.style.display   = 'none';
+    if (emptyMsg) emptyMsg.textContent   = message;
     if (emptyRow) emptyRow.style.display = '';
 }
 
@@ -158,7 +110,6 @@ function hideTripEmptyState() {
     const emptyRow = document.getElementById('tripEmptyStateRow');
     if (emptyRow) emptyRow.style.display = 'none';
 
-    // Restore the "no data" row only if there are no real data rows
     const hasRows = document.querySelectorAll(
         '.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)'
     ).length > 0;
@@ -198,7 +149,7 @@ function closeModal(id) {
     if (id === 'tripDeleteWarning2') {
         clearPasswordError('tripDeletePasswordError');
         document.getElementById('tripDeletePassword').value = '';
-    } 
+    }
     if (id === 'editTripModal') {
         document.getElementById('editTripForm').reset();
         clearFormError('editTripError');
@@ -234,24 +185,14 @@ function closeTripModal() {
     const form = document.getElementById('addTripForm');
     form?.reset();
     clearFormError('addTripError');
-    FV()?.clearFormFieldNotices(form);
     closeModal('addTripModal');
 }
 
 // ── Add Trip Submit ───────────────────────────────────────
 
-const addTripForm = document.getElementById('addTripForm');
-
-addTripForm?.addEventListener('submit', async function (e) {
+document.getElementById('addTripForm')?.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearFormError('addTripError');
-
-    if (!runTripFormValidation(this)) {
-        showFormError('addTripError', 'addTripErrorList', [
-            'Please fix the highlighted fields before submitting.',
-        ]);
-        return;
-    }
 
     const payload = buildTripPayload(this);
 
@@ -275,7 +216,6 @@ addTripForm?.addEventListener('submit', async function (e) {
         } else {
             const data = await response.json().catch(() => null);
             if (data?.errors) {
-                mapServerErrorsToForm(this, data.errors);
                 showFormError('addTripError', 'addTripErrorList', data.errors);
             } else {
                 showFormError('addTripError', 'addTripErrorList', [
@@ -293,7 +233,7 @@ addTripForm?.addEventListener('submit', async function (e) {
     }
 });
 
-// ── Edit Trip Forms ───────────────────────────────────────
+// ── Edit Trip Modal ───────────────────────────────────────
 
 function openEditTrip(id) {
     const row = document.querySelector(`tr[data-trip-id="${id}"]`);
@@ -313,7 +253,6 @@ function openEditTrip(id) {
     document.getElementById('editTripRemarks').value     = row.dataset.remarks;
 
     clearFormError('editTripError');
-    FV()?.clearFormFieldNotices(document.getElementById('editTripForm'));
     openModal('editTripModal');
 }
 
@@ -321,14 +260,7 @@ document.getElementById('editTripForm')?.addEventListener('submit', async functi
     e.preventDefault();
     clearFormError('editTripError');
 
-    if (!runTripFormValidation(this)) {
-        showFormError('editTripError', 'editTripErrorList', [
-            'Please fix the highlighted fields before submitting.',
-        ]);
-        return;
-    }
-
-    const id = document.getElementById('editTripId')?.value;
+    const id      = document.getElementById('editTripId')?.value;
     const payload = buildTripPayload(this);
 
     const btn = this.querySelector('[type="submit"]');
@@ -351,7 +283,6 @@ document.getElementById('editTripForm')?.addEventListener('submit', async functi
         } else {
             const data = await response.json().catch(() => null);
             if (data?.errors) {
-                mapServerErrorsToForm(this, data.errors);
                 showFormError('editTripError', 'editTripErrorList', data.errors);
             } else {
                 showFormError('editTripError', 'editTripErrorList', [
@@ -370,11 +301,11 @@ document.getElementById('editTripForm')?.addEventListener('submit', async functi
 
 document.querySelectorAll('.trip-transition-btn').forEach(btn => {
     btn.addEventListener('click', async function () {
-        const tripId  = this.dataset.id;
-        const status  = this.dataset.status;
-        const confirm = this.dataset.confirm;
+        const tripId      = this.dataset.id;
+        const status      = this.dataset.status;
+        const confirmMsg  = this.dataset.confirm;
 
-        if (confirm && !window.confirm(confirm)) return;
+        if (confirmMsg && !window.confirm(confirmMsg)) return;
 
         this.disabled = true;
 
@@ -393,19 +324,10 @@ document.querySelectorAll('.trip-transition-btn').forEach(btn => {
                 location.reload();
             } else {
                 const data = await response.json().catch(() => null);
-                // Surface error in this row's edit panel if available
-                const row  = this.closest('tr');
-                const form = row?.querySelector('.trip-edit-form');
-                if (form) {
-                    const details = form.closest('details');
-                    if (details) details.open = true;
-                    showInlineError(form, [data?.message || 'Transition failed. Please try again.']);
-                } else {
-                    showTripServerError(
-                        data?.message || 'Transition failed. Please try again.',
-                        httpErrorSubtitle(response.status)
-                    );
-                }
+                showTripServerError(
+                    data?.message || 'Transition failed. Please try again.',
+                    httpErrorSubtitle(response.status)
+                );
             }
         } catch (error) {
             console.error('Error transitioning trip:', error);
@@ -604,19 +526,19 @@ document.getElementById('tripSearch').addEventListener('input', function () {
     _filterDebounce = setTimeout(applyTripFilters, 300);
 });
 
-// ── Status value → proper cased label ────────────────────
+// ── Status value → proper-cased label ────────────────────
 
 function normalizeStatusValue(value) {
     const map = {
-        draft:      'Draft',
-        intransit:  'In-Transit',
-        completed:  'Completed',
-        cancelled:  'Cancelled',
+        draft:     'Draft',
+        intransit: 'In-Transit',
+        completed: 'Completed',
+        cancelled: 'Cancelled',
     };
     return map[value] ?? value;
 }
 
-// ── Restore all data rows (used before re-filtering) ──────
+// ── Restore all data rows ─────────────────────────────────
 
 function restoreAllTripRows() {
     document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
@@ -630,22 +552,19 @@ async function applyTripFilters() {
     hideTripEmptyState();
     restoreAllTripRows();
 
-    const query = document.getElementById('tripSearch').value.trim();
+    const query   = document.getElementById('tripSearch').value.trim();
+    const checked = Array.from(document.querySelectorAll('.trip-status-filter:checked'))
+        .map(cb => normalizeStatusValue(cb.value));
 
-    const checked = Array.from(
-        document.querySelectorAll('.trip-status-filter:checked')
-    ).map(cb => normalizeStatusValue(cb.value));
-
-    // Nothing checked — short circuit immediately, no round-trip needed
     if (checked.length === 0) {
         showTripEmptyState('No statuses selected. Use the filter to choose at least one.');
         return;
     }
 
-    // ── No search query: status filter ───────────────────────
+    // ── Status filter only ────────────────────────────────
     if (!query) {
         try {
-            const params = checked.map(s => `statuses[]=${encodeURIComponent(s)}`).join('&');
+            const params   = checked.map(s => `statuses[]=${encodeURIComponent(s)}`).join('&');
             const response = await fetch(`/trips/filter-status?${params}`, {
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
             });
@@ -664,16 +583,14 @@ async function applyTripFilters() {
             }
 
             const resultIds = new Set((data.data ?? []).map(t => String(t.id)));
-            let anyVisible = false;
+            let anyVisible  = false;
             document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
                 .forEach(row => {
                     const visible = resultIds.has(String(row.dataset.tripId ?? ''));
                     row.style.display = visible ? '' : 'none';
                     if (visible) anyVisible = true;
                 });
-            if (!anyVisible) {
-                showTripEmptyState(`No trip tickets found for: ${checked.join(', ')}.`);
-            }
+            if (!anyVisible) showTripEmptyState(`No trip tickets found for: ${checked.join(', ')}.`);
         } catch (err) {
             console.error('Trip filter error:', err);
             showTripServerError('Unable to connect to the server.', 'Please check your connection and try again.');
@@ -681,7 +598,7 @@ async function applyTripFilters() {
         return;
     }
 
-    // ── Search query present ──────────────────────────────────
+    // ── Search + status filter ────────────────────────────
     try {
         const response = await fetch(`/trips/search?q=${encodeURIComponent(query)}`, {
             headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
@@ -706,7 +623,7 @@ async function applyTripFilters() {
         }
 
         const resultIds = new Set((data.data ?? []).map(t => String(t.id)));
-        let anyVisible = false;
+        let anyVisible  = false;
         document.querySelectorAll('.drivers-table tbody tr:not(#tripEmptyStateRow):not(#tripNoDataRow)')
             .forEach(row => {
                 const tripId = String(row.dataset.tripId ?? '');

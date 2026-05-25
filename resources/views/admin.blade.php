@@ -1,10 +1,8 @@
 @extends('layouts.app')
-
 @php
     $active = 'drivers';
     $title  = 'Driver Management';
 @endphp
-
 @section('content')
     <div class="content-header app-divider">
         <div class="header-text">
@@ -176,7 +174,7 @@
                             <p>Click to upload file</p>
                         </div>
                     </div>
-
+                    {{-- Error panel — always at the bottom of the form body --}}
                     <div id="addDriverError" style="
                         display:none; margin-top:14px; padding:12px 14px;
                         background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
@@ -312,7 +310,7 @@
                             <p>Click to upload new file (optional)</p>
                         </div>
                     </div>
-
+                    {{-- Error panel — always at the bottom of the form body --}}
                     <div id="editDriverError" style="
                         display:none; margin-top:14px; padding:12px 14px;
                         background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">

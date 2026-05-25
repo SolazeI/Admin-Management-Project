@@ -94,11 +94,11 @@
                         Edit Info
                     </summary>
                     <div style="margin-top:10px;">
-                        <form class="fleet-edit-form" data-id="{{ $truck->id }}" data-validate="standard" novalidate>
+                        <form class="fleet-edit-form" data-id="{{ $truck->id }}" novalidate>
                             @csrf
                             <div>
                                 <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck Code</label>
-                                <input name="truck_code" class="search-input" style="width:100%;" value="{{ $truck->truck_code }}" required>
+                                <input name="truck_code" class="search-input" style="width:100%;" value="{{ $truck->truck_code }}">
                             </div>
                             <div>
                                 <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Plate Number</label>
@@ -127,18 +127,6 @@
                             </div>
                             @endif
 
-                            {{-- Inline Error Box --}}
-                            <div class="fleet-form-error" style="
-                                display:none; padding:12px 14px;
-                                background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
-                                <div style="display:flex; align-items:flex-start; gap:8px;">
-                                    <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
-                                    <ul class="fleet-form-error-list" style="
-                                        margin:0; padding:0; list-style:none;
-                                        font-size:13px; color:#dc2626; line-height:1.6;"></ul>
-                                </div>
-                            </div>
-
                             {{-- Card Footer --}}
                             <div style="display:flex; gap:8px; align-items:center; justify-content:space-between; padding-top:12px; border-top:1px solid #e2e8f0; margin-top:12px;">
                                 <button class="btn btn-cancel" type="button"
@@ -158,6 +146,17 @@
                                 </div>
                             </div>
 
+                            {{-- Inline Error Box --}}
+                            <div class="fleet-form-error" style="
+                                display:none; margin-top:12px; padding:12px 14px;
+                                background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
+                                <div style="display:flex; align-items:flex-start; gap:8px;">
+                                    <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; margin-top:1px; flex-shrink:0;">error</span>
+                                    <ul class="fleet-form-error-list" style="
+                                        margin:0; padding:0; list-style:none;
+                                        font-size:13px; color:#dc2626; line-height:1.6;"></ul>
+                                </div>
+                            </div>
                         </form>
                     </div>
                 </details>
@@ -179,17 +178,17 @@
                 <span class="material-symbols-outlined">local_shipping</span>
                 <h2>Add New Truck</h2>
             </div>
-            <form id="addFleetForm" data-validate="standard" novalidate>
+            <form id="addFleetForm" novalidate>
                 @csrf
                 <div class="modal-body">
                     <div class="form-row">
                         <div class="form-group">
                             <label>Truck Code <span class="required">*</span></label>
-                            <input type="text" name="truck_code" placeholder="e.g. ZMG-003" required>
+                            <input type="text" name="truck_code" placeholder="e.g. ZMG-003">
                         </div>
                         <div class="form-group">
                             <label>Plate Number <span class="required">*</span></label>
-                            <input type="text" name="plate_number" placeholder="Plate #" required>
+                            <input type="text" name="plate_number" placeholder="Plate #">
                         </div>
                     </div>
                     <div class="form-row">
@@ -256,7 +255,7 @@
                 <input type="password" class="password-input" id="deleteTruckPassword" placeholder="Admin password">
                 <p id="deleteTruckPasswordError" style="
                     display:none; margin-top:8px; font-size:13px; color:#dc2626;
-                    display:none; align-items:center; gap:6px;">
+                    align-items:center; gap:6px;">
                     <span class="material-symbols-outlined" style="font-size:16px;">error</span>
                     <span id="deleteTruckPasswordErrorText"></span>
                 </p>

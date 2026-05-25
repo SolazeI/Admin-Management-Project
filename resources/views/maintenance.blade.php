@@ -102,7 +102,7 @@
                 <tbody>
                     @forelse ($records as $rec)
                         <tr data-maint-id="{{ $rec->id }}"
-                        data-status="{{ strtolower(str_replace(['-',' '], '', $rec->status)) }}">
+                            data-status="{{ strtolower(str_replace(['-',' '], '', $rec->status)) }}">
                             <td style="font-weight:600;">{{ $rec->truck->truck_code ?? '—' }}</td>
                             <td>{{ $rec->issue_description }}</td>
                             <td>{{ $rec->start_date ?? '—' }}</td>
@@ -202,7 +202,7 @@
                 <span class="material-symbols-outlined">build</span>
                 <h2>Add Maintenance Record</h2>
             </div>
-            <form id="addMaintenanceForm" action="{{ url('/maintenance') }}" method="POST" data-validate="standard" novalidate>
+            <form id="addMaintenanceForm" action="{{ url('/maintenance') }}" method="POST" novalidate>
                 @csrf
                 <div class="modal-body">
                     <p style="font-size:12px; color:#64748b; margin-bottom:14px; background:#f8fafc; border-radius:7px; padding:8px 12px; border:1px solid #e2e8f0;">
@@ -212,7 +212,7 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label>Truck <span class="required">*</span></label>
-                            <select name="truck_id" required>
+                            <select name="truck_id">
                                 <option value="">Select Truck</option>
                                 @foreach ($trucks as $truck)
                                     <option value="{{ $truck->id }}">{{ $truck->truck_code }}</option>
@@ -226,7 +226,7 @@
                     </div>
                     <div class="form-group" style="margin-bottom:14px;">
                         <label>Issue Description <span class="required">*</span></label>
-                        <input type="text" name="issue_description" placeholder="Describe the issue" required>
+                        <input type="text" name="issue_description" placeholder="Describe the issue">
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -361,7 +361,6 @@
             <div class="modal-body">
                 <p>Enter admin password to archive this record.</p>
                 <input type="password" class="password-input" id="maintArchivePassword" placeholder="Admin password">
-                {{-- Password error --}}
                 <p id="maintArchivePasswordError" style="
                     display:none; margin-top:8px; font-size:13px; color:#dc2626;
                     align-items:center; gap:6px;">
@@ -404,7 +403,6 @@
             <div class="modal-body">
                 <p>Enter admin password to permanently delete this record.</p>
                 <input type="password" class="password-input" id="maintDeletePassword" placeholder="Admin password">
-                {{-- Password error --}}
                 <p id="maintDeletePasswordError" style="
                     display:none; margin-top:8px; font-size:13px; color:#dc2626;
                     align-items:center; gap:6px;">
@@ -427,14 +425,14 @@
                 <span class="material-symbols-outlined">edit</span>
                 <h2>Edit Maintenance Record</h2>
             </div>
-            <form id="editMaintenanceForm" data-validate="standard" novalidate>
+            <form id="editMaintenanceForm" novalidate>
                 @csrf
                 <input type="hidden" id="editMaintId">
                 <div class="modal-body">
                     <div class="form-row">
                         <div class="form-group">
                             <label>Truck <span class="required">*</span></label>
-                            <select name="truck_id" id="editMaintTruckId" required>
+                            <select name="truck_id" id="editMaintTruckId">
                                 @foreach ($trucks as $truck)
                                     <option value="{{ $truck->id }}">{{ $truck->truck_code }}</option>
                                 @endforeach
@@ -447,7 +445,7 @@
                     </div>
                     <div class="form-group" style="margin-bottom:14px;">
                         <label>Issue Description <span class="required">*</span></label>
-                        <input type="text" name="issue_description" id="editMaintIssue" required>
+                        <input type="text" name="issue_description" id="editMaintIssue">
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -459,6 +457,8 @@
                             <input type="text" name="cost" id="editMaintCost" placeholder="₱ Cost (optional)">
                         </div>
                     </div>
+
+                    {{-- Edit Error Box --}}
                     <div id="editMaintError" style="
                         display:none; margin-top:14px; padding:12px 14px;
                         background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">

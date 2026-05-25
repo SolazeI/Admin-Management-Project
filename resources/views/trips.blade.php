@@ -55,7 +55,7 @@
     <div id="tripServerError" style="
         display:none; margin-bottom:12px; padding:12px 16px;
         background:#fef2f2; border:1px solid #fca5a5; border-radius:10px;
-        display:none; align-items:flex-start; gap:10px;">
+        align-items:flex-start; gap:10px;">
         <span class="material-symbols-outlined" style="color:#dc2626; font-size:18px; flex-shrink:0; margin-top:1px;">error</span>
         <div style="flex:1;">
             <p id="tripServerErrorText" style="margin:0; font-size:13px; color:#dc2626; font-weight:600;"></p>
@@ -87,17 +87,17 @@
                 <tbody>
                     @forelse ($tripTickets as $trip)
                         <tr data-trip-id="{{ $trip->id }}"
-                        data-trip-no="{{ $trip->trip_no }}"
-                        data-date-issued="{{ optional($trip->date_issued)->format('Y-m-d') }}"
-                        data-truck-id="{{ $trip->truck_id }}"
-                        data-driver-id="{{ $trip->driver_id }}"
-                        data-origin="{{ $trip->origin }}"
-                        data-destination="{{ $trip->destination }}"
-                        data-departure="{{ $trip->departure_time ? \Carbon\Carbon::parse($trip->departure_time)->format('Y-m-d\TH:i') : '' }}"
-                        data-arrival="{{ $trip->arrival_time ? \Carbon\Carbon::parse($trip->arrival_time)->format('Y-m-d\TH:i') : '' }}"
-                        data-distance="{{ $trip->distance_km }}"
-                        data-amount="{{ $trip->amount }}"
-                        data-remarks="{{ addslashes($trip->remarks) }}">
+                            data-trip-no="{{ $trip->trip_no }}"
+                            data-date-issued="{{ optional($trip->date_issued)->format('Y-m-d') }}"
+                            data-truck-id="{{ $trip->truck_id }}"
+                            data-driver-id="{{ $trip->driver_id }}"
+                            data-origin="{{ $trip->origin }}"
+                            data-destination="{{ $trip->destination }}"
+                            data-departure="{{ $trip->departure_time ? \Carbon\Carbon::parse($trip->departure_time)->format('Y-m-d\TH:i') : '' }}"
+                            data-arrival="{{ $trip->arrival_time ? \Carbon\Carbon::parse($trip->arrival_time)->format('Y-m-d\TH:i') : '' }}"
+                            data-distance="{{ $trip->distance_km }}"
+                            data-amount="{{ $trip->amount }}"
+                            data-remarks="{{ addslashes($trip->remarks) }}">
                             <td style="font-weight:700;">{{ $trip->trip_no }}</td>
                             <td>{{ $trip->truck->truck_code ?? '—' }}</td>
                             <td>{{ $trip->driver->full_name ?? '—' }}</td>
@@ -139,13 +139,12 @@
                                         </button>
                                     @endif
 
-                                    {{-- Edit panel --}}
-                                        <button type="button" class="btn btn-secondary"
-                                            style="padding:5px 11px; font-size:12px; gap:4px;"
-                                            onclick="openEditTrip({{ $trip->id }})">
-                                            <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
-                                            Edit
-                                        </button>
+                                    <button type="button" class="btn btn-secondary"
+                                        style="padding:5px 11px; font-size:12px; gap:4px;"
+                                        onclick="openEditTrip({{ $trip->id }})">
+                                        <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                                        Edit
+                                    </button>
                                     <button type="button" class="btn btn-secondary" style="font-size:12px; padding:5px 11px; gap:4px;"
                                         onclick="confirmArchiveTrip({{ $trip->id }}, '{{ addslashes($trip->trip_no) }}')">
                                         <span class="material-symbols-outlined" style="font-size:14px;">archive</span>
@@ -160,7 +159,6 @@
                             <td colspan="8" class="no-data">No trip tickets yet.</td>
                         </tr>
                     @endforelse
-                    {{-- JS injects this when search/filter returns empty --}}
                     <tr id="tripEmptyStateRow" style="display:none;">
                         <td colspan="8" class="no-data" id="tripEmptyStateMsg">No results found.</td>
                     </tr>
@@ -177,7 +175,7 @@
                 <h2>Trip Ticket Entry</h2>
             </div>
             <div class="modal-body" style="padding:0;">
-                <form id="addTripForm" data-validate="trip" novalidate>
+                <form id="addTripForm" novalidate>
                     @csrf
                     <div class="trip-entry-header">Weekly / Monthly Trip Ticket Entry</div>
                     <div class="trip-entry-subtitle">New tickets start as Draft — use the Dispatch button to put them In-Transit</div>
@@ -186,18 +184,18 @@
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Date Issued</label>
                             <input type="date" name="date_issued" class="search-input" style="width:100%;">
                         </div>
-                        <div class="field-validate-group">
+                        <div>
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck <span style="color:#ef4444;">*</span></label>
-                            <select name="truck_id" class="search-input" style="width:100%;" required>
+                            <select name="truck_id" class="search-input" style="width:100%;">
                                 <option value="">Select Truck</option>
                                 @foreach ($trucks as $truck)
                                     <option value="{{ $truck->id }}">{{ $truck->truck_code }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div class="field-validate-group">
+                        <div>
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Driver <span style="color:#ef4444;">*</span></label>
-                            <select name="driver_id" class="search-input" style="width:100%;" required>
+                            <select name="driver_id" class="search-input" style="width:100%;">
                                 <option value="">Select Driver</option>
                                 @foreach ($drivers as $driver)
                                     <option value="{{ $driver->id }}">{{ $driver->full_name }}</option>
@@ -430,30 +428,30 @@
                 <span class="material-symbols-outlined">edit</span>
                 <h2>Edit Trip Ticket</h2>
             </div>
-            <form id="editTripForm" data-validate="trip" novalidate>
+            <form id="editTripForm" novalidate>
                 @csrf
                 <input type="hidden" id="editTripId">
                 <div class="modal-body">
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                        <div class="field-validate-group">
+                        <div>
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Trip No.</label>
-                            <input name="trip_no" id="editTripNo" class="search-input" style="width:100%;" required>
+                            <input name="trip_no" id="editTripNo" class="search-input" style="width:100%;">
                         </div>
                         <div>
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Date Issued</label>
                             <input type="date" name="date_issued" id="editTripDateIssued" class="search-input" style="width:100%;">
                         </div>
-                        <div class="field-validate-group">
+                        <div>
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Truck</label>
-                            <select name="truck_id" id="editTripTruckId" class="search-input" style="width:100%;" required>
+                            <select name="truck_id" id="editTripTruckId" class="search-input" style="width:100%;">
                                 @foreach ($allTrucks as $truck)
                                     <option value="{{ $truck->id }}">{{ $truck->truck_code }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div class="field-validate-group">
+                        <div>
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Driver</label>
-                            <select name="driver_id" id="editTripDriverId" class="search-input" style="width:100%;" required>
+                            <select name="driver_id" id="editTripDriverId" class="search-input" style="width:100%;">
                                 @foreach ($allDrivers as $driver)
                                     <option value="{{ $driver->id }}">{{ $driver->full_name }}</option>
                                 @endforeach
@@ -487,6 +485,8 @@
                             <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Remarks</label>
                             <textarea name="remarks" id="editTripRemarks" class="search-input" style="width:100%; height:60px; resize:none;"></textarea>
                         </div>
+
+                        {{-- Edit Error Box --}}
                         <div id="editTripError" style="
                             display:none; grid-column:1/-1; padding:12px 14px;
                             background:#fef2f2; border:1px solid #fca5a5; border-radius:8px;">
